@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+  <title>All Families - Faiz al-Mawaid al-Burhaniyah Admin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+  <link href="../css/site.css?v=20260927b" rel="stylesheet">
+</head>
+<body>
+  <div id="ckNavbar"></div>
+
+  <main class="container my-4">
+    <div class="ck-page-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+      <div>
+        <h1 class="mb-1"><i class="bi bi-people-fill me-2"></i>All Families</h1>
+        <p class="ck-muted mb-0">Every family that has registered with the kitchen.</p>
+      </div>
+      <div class="d-flex gap-2 flex-wrap">
+        <button type="button" class="btn btn-outline-primary" id="bulkImportOpenBtn" data-bs-toggle="modal" data-bs-target="#bulkImportModal"><i class="bi bi-file-earmark-spreadsheet me-1"></i>Bulk Import</button>
+        <a href="registrations.html" class="btn btn-outline-primary"><i class="bi bi-person-check me-1"></i>Pending Registrations</a>
+      </div>
+    </div>
+
+    <div class="d-flex align-items-center gap-2 mb-3 flex-wrap">
+      <label class="form-label mb-0" for="statusFilter">Status:</label>
+      <select class="form-select" id="statusFilter" style="width:auto;">
+        <option value="">All</option>
+        <option value="Pending">Pending</option>
+        <option value="Approved" selected>Approved</option>
+        <option value="Rejected">Rejected</option>
+      </select>
+      <span class="ck-muted ms-auto" id="resultCount"></span>
+    </div>
+
+    <div id="loadingBox" class="ck-loading"><div class="spinner-border text-primary"></div></div>
+    <div id="emptyBox" class="ck-empty-state d-none"><i class="bi bi-people"></i>No families match this filter.</div>
+
+    <div class="table-responsive d-none" id="tableWrap">
+      <table class="table align-middle bg-white">
+        <thead>
+          <tr>
+            <th>Family Head</th><th>Sabil No.</th><th>Contact</th><th>Members</th><th>Area</th><th>Thaali Size</th><th>Status</th><th>Active</th><th></th>
+          </tr>
+        </thead>
+        <tbody id="familiesBody"></tbody>
+      </table>
+    </div>
+  </main>
+
+  <!-- Bulk Import modal -->
+  <div class="modal fade" id="bulkImportModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title"><i class="bi bi-file-earmark-spreadsheet me-2"></i>Bulk Import Families</h5>
+          <button class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <p class="ck-muted">Upload an Excel file to register many families at once (e.g. existing community members who haven't signed up themselves yet). Every row creates a login account and a family together, already Approved and active -- no separate approval step needed.</p>
+          <button type="button" class="btn btn-outline-primary btn-sm mb-3" id="downloadFamilyTemplateBtn"><i class="bi bi-download me-1"></i>Download Template</button>
+
+          <div id="bulkFamilyAlert" class="alert alert-danger d-none"></div>
+
+          <div class="mb-3">
+            <label class="form-label" for="bulkFamilyFile">Excel file</label>
+            <input type="file" class="form-control" id="bulkFamilyFile" accept=".xlsx,.xls,.csv">
+          </div>
+
+          <div id="bulkFamilyPreviewBox" class="d-none">
+            <h6 class="mb-2">Preview <span class="ck-muted fw-normal" id="bulkFamilyPreviewCount"></span></h6>
+            <div class="table-responsive mb-3" style="max-height:260px;overflow-y:auto;">
+              <table class="table table-sm align-middle bg-white mb-0">
+                <thead><tr><th>Name</th><th>Email</th><th>Sabil No.</th><th>Thaali Size</th><th></th></tr></thead>
+                <tbody id="bulkFamilyPreviewBody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div id="bulkFamilyResultsBox" class="d-none">
+            <h6 class="mb-2">Results</h6>
+            <div id="bulkFamilyResultsSummary" class="mb-2"></div>
+            <div class="table-responsive" style="max-height:260px;overflow-y:auto;">
+              <table class="table table-sm align-middle bg-white mb-0">
+                <thead><tr><th>Email</th><th>Status</th><th>Details</th></tr></thead>
+                <tbody id="bulkFamilyResultsBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+          <button class="btn btn-primary" id="bulkFamilyImportBtn" disabled><i class="bi bi-cloud-upload me-1"></i>Import</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit family modal -->
+  <div class="modal fade" id="editModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title"><i class="bi bi-pencil me-2"></i>Edit Family</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body">
+          <div id="editAlert" class="alert alert-danger d-none"></div>
+          <form id="editForm">
+            <input type="hidden" id="editFamilyId">
+            <div class="mb-3"><label class="form-label" for="editAddress">Address</label><input type="text" class="form-control" id="editAddress" maxlength="500"></div>
+            <div class="mb-3"><label class="form-label" for="editAreaId">Area / Tower</label><select class="form-select" id="editAreaId"><option value="">(none / pickup from kitchen)</option></select></div>
+            <div class="mb-3"><label class="form-label" for="editMembers">Family members</label><input type="number" class="form-control" id="editMembers" min="1" max="50"></div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button class="btn btn-primary" id="saveEditBtn"><i class="bi bi-check2 me-1"></i>Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Change size modal -->
+  <div class="modal fade" id="sizeModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title"><i class="bi bi-arrow-repeat me-2"></i>Change Thaali Size</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body">
+          <div id="sizeAlert" class="alert alert-danger d-none"></div>
+          <input type="hidden" id="sizeFamilyId">
+          <div class="mb-3"><label class="form-label" for="newSizeId">New size</label><select class="form-select" id="newSizeId"></select></div>
+          <div class="mb-3"><label class="form-label" for="effectiveFromDate">Effective from</label><input type="date" class="form-control" id="effectiveFromDate"></div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button class="btn btn-primary" id="saveSizeBtn"><i class="bi bi-check2 me-1"></i>Save Change</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sub-Families modal -->
+  <div class="modal fade" id="subFamiliesModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title"><i class="bi bi-diagram-3 me-2"></i>Sub-Families <span class="ck-muted fw-normal" id="subFamiliesParentName"></span></h5>
+          <button class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <p class="ck-muted">Link an additional household (e.g. a married child staying in a nearby flat or building) to this family so it can take its own thaali, while still being reportable alongside the main family.</p>
+
+          <div id="subFamiliesListBox"></div>
+
+          <hr>
+          <h6 class="mb-3">Add a Sub-Family</h6>
+          <div id="subFamilyAlert" class="alert alert-danger d-none"></div>
+          <form id="subFamilyForm" novalidate>
+            <input type="hidden" id="subFamilyParentId">
+            <div class="row g-3">
+              <div class="col-12">
+                <label class="form-label" for="subFamilyLabel">Label</label>
+                <input type="text" class="form-control" id="subFamilyLabel" required maxlength="150" placeholder="e.g. Son's family - Building B, Flat 12">
+                <div class="invalid-feedback">Please enter a short label to identify this household.</div>
+              </div>
+              <div class="col-md-8">
+                <label class="form-label" for="subFamilyAddress">Address <span class="ck-muted fw-normal">(optional)</span></label>
+                <input type="text" class="form-control" id="subFamilyAddress" maxlength="500">
+              </div>
+              <div class="col-md-4">
+                <label class="form-label" for="subFamilyMembers">Members <span class="ck-muted fw-normal">(optional)</span></label>
+                <input type="number" class="form-control" id="subFamilyMembers" min="1" max="50">
+              </div>
+              <div class="col-12">
+                <label class="form-label" for="subFamilyThaaliSizeId">Thaali size</label>
+                <select class="form-select" id="subFamilyThaaliSizeId" required></select>
+                <div class="invalid-feedback">Please choose a thaali size.</div>
+              </div>
+            </div>
+            <div class="d-grid mt-3">
+              <button type="button" class="btn btn-primary" id="addSubFamilyBtn"><i class="bi bi-plus-lg me-1"></i>Add Sub-Family</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Size history modal -->
+  <div class="modal fade" id="historyModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title"><i class="bi bi-clock-history me-2"></i>Thaali Size History</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body" id="historyBody"></div>
+      </div>
+    </div>
+  </div>
+
+  <footer class="ck-footer text-center"><div class="container"><a href="https://www.thedawoodibohras.com/faiz-al-mawaid-al-burhaniyah/" target="_blank" rel="noopener" class="ck-footer-link">Faiz al-Mawaid al-Burhaniyah</a> Community Kitchen</div></footer>
+
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="../js/site.js?v=20260927b"></script>
+  <script>
+    $(function () {
+      var session = CK.session.requireAdmin();
+      if (!session) { return; }
+      CK.nav.render("admin", "families");
+
+      var usersById = {}, sizesById = {}, areasById = {};
+
+      function statusBadgeClass(status) { return "badge badge-status-" + status.toLowerCase(); }
+
+      function load() {
+        $("#loadingBox").show();
+        $("#tableWrap").addClass("d-none");
+        $("#emptyBox").addClass("d-none");
+
+        var status = $("#statusFilter").val();
+        var url = "/api/families" + (status ? ("?status=" + status) : "");
+
+        $.when(
+          CK.api.get("/api/users?roleId=2"),
+          CK.api.get("/api/thaalisizes"),
+          CK.api.get("/api/areas"),
+          CK.api.get(url)
+        ).done(function (usersResp, sizesResp, areasResp, familiesResp) {
+          usersById = {}; sizesById = {}; areasById = {};
+          $.each(usersResp[0] || [], function (i, u) { usersById[u.id] = u; });
+          $.each(sizesResp[0] || [], function (i, s) { sizesById[s.id] = s; });
+          $.each(areasResp[0] || [], function (i, a) { areasById[a.id] = a; });
+          render(familiesResp[0] || []);
+        }).fail(function (xhr) {
+          CK.toast(CK.api.errorMessage(xhr, "Could not load families."), "danger");
+          $("#loadingBox").hide();
+        });
+      }
+
+      function render(families) {
+        $("#loadingBox").hide();
+        $("#resultCount").text(families.length + " famil" + (families.length === 1 ? "y" : "ies"));
+        var $body = $("#familiesBody").empty();
+        if (families.length === 0) {
+          $("#emptyBox").removeClass("d-none");
+          return;
+        }
+        $("#tableWrap").removeClass("d-none");
+
+        families.sort(function (a, b) { return a.createdAt < b.createdAt ? 1 : -1; });
+        $.each(families, function (i, f) {
+          var user = usersById[f.familyHeadUserId] || {};
+          var size = sizesById[f.thaaliSizeId];
+          var area = f.areaId ? areasById[f.areaId] : null;
+          var row =
+            '<tr>' +
+              '<td><div class="fw-semibold">' + CK.esc(user.fullName || ("User #" + f.familyHeadUserId)) + '</div><div class="ck-small ck-muted">' + CK.esc(f.address || "") + '</div></td>' +
+              '<td>' + CK.esc(user.sabilNumber || "—") + '</td>' +
+              '<td>' + CK.esc(user.email || "—") + '<br><span class="ck-muted ck-small">' + CK.esc(user.phone || "") + '</span></td>' +
+              '<td>' + CK.esc(f.numberOfMembers || "—") + '</td>' +
+              '<td>' + CK.esc(area ? area.name : (f.areaId ? ("#" + f.areaId) : "—")) + '</td>' +
+              '<td>' + CK.esc(size ? size.name : ("#" + f.thaaliSizeId)) +
+                (f.registrationStatus === "Approved" ? ' <button class="btn btn-sm btn-link p-0 ms-1 change-size-btn" data-id="' + f.id + '" data-size="' + f.thaaliSizeId + '" title="Change size"><i class="bi bi-pencil-square"></i></button>' : '') +
+                ' <button class="btn btn-sm btn-link p-0 ms-1 history-btn" data-id="' + f.id + '" title="History"><i class="bi bi-clock-history"></i></button>' +
+              '</td>' +
+              '<td><span class="' + statusBadgeClass(f.registrationStatus) + '">' + f.registrationStatus + '</span></td>' +
+              '<td>' + (f.isActive ? '<span class="badge badge-status-active">Active</span>' : '<span class="badge badge-status-inactive">Inactive</span>') + '</td>' +
+              '<td class="text-end text-nowrap">' +
+                '<button class="btn btn-sm btn-outline-secondary edit-btn" data-id="' + f.id + '" data-address="' + CK.esc(f.address || "") + '" data-area-id="' + (f.areaId || "") + '" data-members="' + (f.numberOfMembers || "") + '" title="Edit"><i class="bi bi-pencil"></i></button> ' +
+                (f.registrationStatus === "Approved"
+                  ? '<button class="btn btn-sm btn-outline-secondary subfamilies-btn" data-id="' + f.id + '" data-name="' + CK.esc(user.fullName || ("Family #" + f.id)) + '" title="Sub-Families"><i class="bi bi-diagram-3"></i></button> '
+                  : '') +
+                (f.isActive
+                  ? '<button class="btn btn-sm btn-outline-danger toggle-active-btn" data-id="' + f.id + '" data-active="true" title="Deactivate"><i class="bi bi-pause-circle"></i></button>'
+                  : '<button class="btn btn-sm btn-outline-primary toggle-active-btn" data-id="' + f.id + '" data-active="false" title="Activate"><i class="bi bi-play-circle"></i></button>') +
+              '</td>' +
+            '</tr>';
+          $body.append(row);
+        });
+      }
+
+      $("#statusFilter").on("change", load);
+
+      // Edit
+      $(document).on("click", ".edit-btn", function () {
+        $("#editAlert").addClass("d-none");
+        $("#editFamilyId").val($(this).data("id"));
+        $("#editAddress").val($(this).data("address"));
+        var currentAreaId = $(this).data("area-id");
+        var $areaSelect = $("#editAreaId").empty().append('<option value="">(none / pickup from kitchen)</option>');
+        $.each(areasById, function (id, a) {
+          $areaSelect.append('<option value="' + a.id + '"' + (String(currentAreaId) === String(id) ? " selected" : "") + '>' + CK.esc(a.name) + '</option>');
+        });
+        $("#editMembers").val($(this).data("members"));
+        new bootstrap.Modal(document.getElementById("editModal")).show();
+      });
+      $("#saveEditBtn").on("click", function () {
+        var id = $("#editFamilyId").val();
+        var membersVal = $("#editMembers").val();
+        var areaVal = $("#editAreaId").val();
+        var payload = { address: $("#editAddress").val().trim() || null, areaId: areaVal ? parseInt(areaVal, 10) : null, numberOfMembers: membersVal ? parseInt(membersVal, 10) : null };
+        var $btn = $(this).prop("disabled", true).html('<span class="spinner-border spinner-border-sm"></span>');
+        CK.api.put("/api/families/" + id, payload).done(function () {
+          $("#editModal").modal("hide");
+          CK.toast("Family updated.", "success");
+          load();
+        }).fail(function (xhr) {
+          $("#editAlert").text(CK.api.errorMessage(xhr, "Could not update this family.")).removeClass("d-none");
+        }).always(function () { $btn.prop("disabled", false).html('<i class="bi bi-check2 me-1"></i>Save'); });
+      });
+
+      // Activate/Deactivate
+      $(document).on("click", ".toggle-active-btn", function () {
+        var id = $(this).data("id");
+        var isActive = $(this).data("active") === true || $(this).data("active") === "true";
+        var action = isActive ? "deactivate" : "activate";
+        var $btn = $(this).prop("disabled", true);
+        CK.api.put("/api/families/" + id + "/" + action, {}).done(function () {
+          CK.toast("Family " + action + "d.", "success");
+          load();
+        }).fail(function (xhr) {
+          CK.toast(CK.api.errorMessage(xhr, "Could not update this family."), "danger");
+          $btn.prop("disabled", false);
+        });
+      });
+
+      // Change thaali size
+      $(document).on("click", ".change-size-btn", function () {
+        $("#sizeAlert").addClass("d-none");
+        $("#sizeFamilyId").val($(this).data("id"));
+        var currentSizeId = $(this).data("size");
+        var $select = $("#newSizeId").empty();
+        $.each(sizesById, function (id, s) {
+          $select.append('<option value="' + s.id + '"' + (String(currentSizeId) === String(id) ? " selected" : "") + '>' + CK.esc(s.name) + '</option>');
+        });
+        $("#effectiveFromDate").attr("min", CK.today()).val(CK.today());
+        new bootstrap.Modal(document.getElementById("sizeModal")).show();
+      });
+      $("#saveSizeBtn").on("click", function () {
+        var id = $("#sizeFamilyId").val();
+        var payload = {
+          newThaaliSizeId: parseInt($("#newSizeId").val(), 10),
+          changedByUserId: session.userId,
+          effectiveFromDate: $("#effectiveFromDate").val()
+        };
+        var $btn = $(this).prop("disabled", true).html('<span class="spinner-border spinner-border-sm"></span>');
+        CK.api.put("/api/families/" + id + "/thaali-size", payload).done(function () {
+          $("#sizeModal").modal("hide");
+          CK.toast("Thaali size updated.", "success");
+          load();
+        }).fail(function (xhr) {
+          $("#sizeAlert").text(CK.api.errorMessage(xhr, "Could not change thaali size.")).removeClass("d-none");
+        }).always(function () { $btn.prop("disabled", false).html('<i class="bi bi-check2 me-1"></i>Save Change'); });
+      });
+
+      // Sub-Families
+      function subFamilyStatusLabel(sf) {
+        return sf.isActive ? '<span class="badge badge-status-active">Active</span>' : '<span class="badge badge-status-inactive">Inactive</span>';
+      }
+
+      function loadSubFamilies(parentId) {
+        $("#subFamiliesListBox").html('<div class="ck-loading"><div class="spinner-border text-primary"></div></div>');
+        CK.api.get("/api/families/" + parentId + "/sub-families").done(function (subFamilies) {
+          if (!subFamilies || subFamilies.length === 0) {
+            $("#subFamiliesListBox").html('<p class="ck-muted mb-0">No sub-families linked yet.</p>');
+            return;
+          }
+          var html = '<div class="table-responsive"><table class="table align-middle bg-white mb-0"><thead><tr><th>Label</th><th>Address</th><th>Members</th><th>Thaali Size</th><th>Status</th></tr></thead><tbody>';
+          $.each(subFamilies, function (i, sf) {
+            var size = sizesById[sf.thaaliSizeId];
+            html += '<tr>' +
+              '<td class="fw-semibold">' + CK.esc(sf.subFamilyLabel || ("Sub-Family #" + sf.id)) + '</td>' +
+              '<td>' + CK.esc(sf.address || "—") + '</td>' +
+              '<td>' + CK.esc(sf.numberOfMembers || "—") + '</td>' +
+              '<td>' + CK.esc(size ? size.name : ("#" + sf.thaaliSizeId)) + '</td>' +
+              '<td>' + subFamilyStatusLabel(sf) + '</td>' +
+              '</tr>';
+          });
+          html += '</tbody></table></div>';
+          $("#subFamiliesListBox").html(html);
+        }).fail(function (xhr) {
+          $("#subFamiliesListBox").html('<p class="text-danger mb-0">' + CK.esc(CK.api.errorMessage(xhr)) + '</p>');
+        });
+      }
+
+      $(document).on("click", ".subfamilies-btn", function () {
+        var id = $(this).data("id");
+        $("#subFamiliesParentName").text("— " + $(this).data("name"));
+        $("#subFamilyParentId").val(id);
+        $("#subFamilyAlert").addClass("d-none");
+        $(document.getElementById("subFamilyForm"))[0].reset();
+        $(document.getElementById("subFamilyForm")).removeClass("was-validated");
+
+        var $select = $("#subFamilyThaaliSizeId").empty();
+        $.each(sizesById, function (sizeId, s) { $select.append('<option value="' + s.id + '">' + CK.esc(s.name) + '</option>'); });
+
+        new bootstrap.Modal(document.getElementById("subFamiliesModal")).show();
+        loadSubFamilies(id);
+      });
+
+      $("#addSubFamilyBtn").on("click", function () {
+        $("#subFamilyAlert").addClass("d-none");
+        var form = document.getElementById("subFamilyForm");
+        if (!form.checkValidity()) { $(form).addClass("was-validated"); return; }
+
+        var parentId = $("#subFamilyParentId").val();
+        var membersVal = $("#subFamilyMembers").val();
+        var payload = {
+          subFamilyLabel: $("#subFamilyLabel").val().trim(),
+          address: $("#subFamilyAddress").val().trim() || null,
+          numberOfMembers: membersVal ? parseInt(membersVal, 10) : null,
+          thaaliSizeId: parseInt($("#subFamilyThaaliSizeId").val(), 10),
+          createdByAdminUserId: session.userId
+        };
+        var $btn = $(this).prop("disabled", true).html('<span class="spinner-border spinner-border-sm me-1"></span>Adding&hellip;');
+
+        CK.api.post("/api/families/" + parentId + "/sub-families", payload).done(function () {
+          CK.toast("Sub-family added.", "success");
+          $(form)[0].reset();
+          $(form).removeClass("was-validated");
+          loadSubFamilies(parentId);
+        }).fail(function (xhr) {
+          $("#subFamilyAlert").text(CK.api.errorMessage(xhr, "Could not add this sub-family.")).removeClass("d-none");
+        }).always(function () { $btn.prop("disabled", false).html('<i class="bi bi-plus-lg me-1"></i>Add Sub-Family'); });
+      });
+
+      // Size history
+      $(document).on("click", ".history-btn", function () {
+        var id = $(this).data("id");
+        $("#historyBody").html('<div class="ck-loading"><div class="spinner-border text-primary"></div></div>');
+        new bootstrap.Modal(document.getElementById("historyModal")).show();
+        CK.api.get("/api/families/" + id + "/size-history").done(function (rows) {
+          if (!rows || rows.length === 0) {
+            $("#historyBody").html('<p class="ck-muted mb-0">No history yet.</p>');
+            return;
+          }
+          rows.sort(function (a, b) { return a.effectiveFromDate < b.effectiveFromDate ? 1 : -1; });
+          var html = '<ul class="list-group list-group-flush">';
+          $.each(rows, function (i, r) {
+            var size = sizesById[r.thaaliSizeId];
+            var range = CK.fmt.dateShort(r.effectiveFromDate) + " &rarr; " + (r.effectiveToDate ? CK.fmt.dateShort(r.effectiveToDate) : "Current");
+            html += '<li class="list-group-item px-0"><strong>' + CK.esc(size ? size.name : ("#" + r.thaaliSizeId)) + '</strong> <span class="ck-muted">(' + range + ')</span></li>';
+          });
+          html += '</ul>';
+          $("#historyBody").html(html);
+        }).fail(function (xhr) {
+          $("#historyBody").html('<p class="text-danger mb-0">' + CK.esc(CK.api.errorMessage(xhr)) + '</p>');
+        });
+      });
+
+      // ---------------------------------------------------------------
+      // Bulk Import Families
+      // ---------------------------------------------------------------
+      var MEMBER_HEADERS = [
+        { key: "fullName", label: "Full Name", width: 22 },
+        { key: "email", label: "Email", width: 26 },
+        { key: "phone", label: "Phone", width: 16 },
+        { key: "sabilNumber", label: "Sabil Number", width: 16 },
+        { key: "address", label: "Address", width: 30 },
+        { key: "numberOfMembers", label: "Number of Members", width: 14 },
+        { key: "thaaliSizeName", label: "Thaali Size", width: 14 },
+        { key: "password", label: "Password", width: 16 }
+      ];
+      var parsedFamilyRows = [];
+
+      /** A simple, easy-to-hand-out starting password -- not meant to be memorized long-term, since MustChangePassword forces a real one at first login. */
+      function suggestPassword(fullName, sabilNumber) {
+        var namePart = String(fullName || "Member").replace(/[^A-Za-z]/g, "").slice(0, 4) || "Mbr";
+        namePart = namePart.charAt(0).toUpperCase() + namePart.slice(1).toLowerCase();
+        var digits = String(sabilNumber || "").replace(/\D/g, "");
+        var sabilPart = digits.slice(-4) || "0000";
+        return namePart + sabilPart + "!";
+      }
+
+      function resetBulkFamilyModal() {
+        $("#bulkFamilyAlert").addClass("d-none");
+        $("#bulkFamilyFile").val("");
+        $("#bulkFamilyPreviewBox").addClass("d-none");
+        $("#bulkFamilyResultsBox").addClass("d-none");
+        $("#bulkFamilyImportBtn").prop("disabled", true);
+        parsedFamilyRows = [];
+      }
+
+      $("#downloadFamilyTemplateBtn").on("click", function () {
+        var sizeNames = [];
+        $.each(sizesById, function (id, s) { sizeNames.push(s.name); });
+        var size1 = sizeNames[0] || "Medium";
+        var size2 = sizeNames[1] || size1;
+        var exampleRows = [
+          { fullName: "Fatema Rangwala", email: "fatema.rangwala@example.com", phone: "9821012345", sabilNumber: "10234567", address: "12 Sabil Street, Mumbai", numberOfMembers: 4, thaaliSizeName: size1, password: suggestPassword("Fatema Rangwala", "10234567") },
+          { fullName: "Hussain Bhagat", email: "hussain.bhagat@example.com", phone: "9821098765", sabilNumber: "10298765", address: "45 Kitchen Lane, Mumbai", numberOfMembers: 2, thaaliSizeName: size2, password: suggestPassword("Hussain Bhagat", "10298765") }
+        ];
+        CK.excel.downloadTemplate(
+          "family-bulk-import-template.xlsx",
+          "Members",
+          MEMBER_HEADERS,
+          exampleRows,
+          [
+            "How to fill this in:",
+            "- Full Name, Email, Sabil Number, and Password are required for every row.",
+            "- Thaali Size must exactly match one of the sizes defined in this system: " + (sizeNames.length > 0 ? sizeNames.join(", ") : "(none defined yet -- add sizes first, under Thaali Sizes)") + ".",
+            "- Number of Members is optional -- it's only used to help judge Thaali size, this system doesn't track who those members are.",
+            "- Every imported family is created already Approved and active -- no separate approval step needed.",
+            "",
+            "About the Password column:",
+            "- This is a TEMPORARY password only -- everyone is required to choose their own the first time they sign in, so it doesn't need to be memorable long-term.",
+            "- A simple pattern that's easy to write on a printed handout: first 4 letters of their name + last 4 digits of their Sabil Number + an exclamation mark (e.g. Fatema Rangwala, Sabil ...4567 -> Fate4567!). The example rows already use this pattern -- keep it, or write your own.",
+            "- Avoid giving everyone the exact same password -- if two people share one, either could sign in as the other before the real owner changes it.",
+            "- Delete these two example rows before uploading, or just add your own rows below them."
+          ]
+        );
+      });
+
+      $("#bulkFamilyFile").on("change", function () {
+        var file = this.files && this.files[0];
+        $("#bulkFamilyAlert").addClass("d-none");
+        $("#bulkFamilyResultsBox").addClass("d-none");
+        if (!file) { return; }
+
+        CK.excel.readRows(file, MEMBER_HEADERS, function (err, rows) {
+          if (err) { $("#bulkFamilyAlert").text(err).removeClass("d-none"); return; }
+          if (rows.length === 0) { $("#bulkFamilyAlert").text("That file doesn't have any rows in it.").removeClass("d-none"); return; }
+
+          parsedFamilyRows = [];
+          var $body = $("#bulkFamilyPreviewBody").empty();
+          var problems = 0;
+
+          $.each(rows, function (i, row) {
+            var fullName = String(row.fullName || "").trim();
+            var email = String(row.email || "").trim();
+            var sabilNumber = String(row.sabilNumber || "").trim();
+            var password = String(row.password || "").trim();
+            var thaaliSizeName = String(row.thaaliSizeName || "").trim();
+            var phone = String(row.phone || "").trim();
+            var address = String(row.address || "").trim();
+            var membersRaw = row.numberOfMembers;
+            var numberOfMembers = (membersRaw !== "" && membersRaw !== undefined && !isNaN(parseInt(membersRaw, 10))) ? parseInt(membersRaw, 10) : null;
+
+            var issue = null;
+            if (!fullName || !email || !sabilNumber || !password) { issue = "Full Name, Email, Sabil Number, and Password are all required."; }
+            else if (password.length < 8) { issue = "Password must be at least 8 characters."; }
+            else if (!thaaliSizeName) { issue = "Thaali Size is required."; }
+
+            if (issue) {
+              problems++;
+              $body.append('<tr class="table-warning"><td>' + CK.esc(fullName) + '</td><td>' + CK.esc(email) + '</td><td>' + CK.esc(sabilNumber) + '</td><td>' + CK.esc(thaaliSizeName) + '</td><td class="text-danger ck-small">' + CK.esc(issue) + '</td></tr>');
+            } else {
+              parsedFamilyRows.push({
+                fullName: fullName, email: email, phone: phone || null, sabilNumber: sabilNumber,
+                address: address || null, numberOfMembers: numberOfMembers, thaaliSizeName: thaaliSizeName, password: password
+              });
+              $body.append('<tr><td>' + CK.esc(fullName) + '</td><td>' + CK.esc(email) + '</td><td>' + CK.esc(sabilNumber) + '</td><td>' + CK.esc(thaaliSizeName) + '</td><td class="text-success ck-small"><i class="bi bi-check-lg"></i></td></tr>');
+            }
+          });
+
+          $("#bulkFamilyPreviewCount").text("(" + rows.length + " row" + (rows.length === 1 ? "" : "s") + (problems > 0 ? ", " + problems + " with a problem" : "") + ")");
+          $("#bulkFamilyPreviewBox").removeClass("d-none");
+          $("#bulkFamilyImportBtn").prop("disabled", parsedFamilyRows.length === 0);
+        });
+      });
+
+      $("#bulkFamilyImportBtn").on("click", function () {
+        if (parsedFamilyRows.length === 0) { return; }
+        var $btn = $(this).prop("disabled", true).html('<span class="spinner-border spinner-border-sm me-1"></span>Importing&hellip;');
+        $("#bulkFamilyAlert").addClass("d-none");
+
+        CK.api.post("/api/families/bulk-import", { items: parsedFamilyRows, importedByAdminUserId: session.userId }).done(function (result) {
+          $("#bulkFamilyResultsSummary").html(
+            '<span class="badge text-bg-success me-2">' + result.createdCount + ' created</span>' +
+            (result.skippedCount > 0 ? '<span class="badge text-bg-secondary">' + result.skippedCount + ' skipped</span>' : '')
+          );
+          var $rbody = $("#bulkFamilyResultsBody").empty();
+          $.each(result.rows, function (i, r) {
+            var badgeClass = r.status === "Created" ? "text-bg-success" : "text-bg-secondary";
+            $rbody.append('<tr><td>' + CK.esc(r.email) + '</td><td><span class="badge ' + badgeClass + '">' + r.status + '</span></td><td class="ck-small">' + CK.esc(r.message || "") + '</td></tr>');
+          });
+          $("#bulkFamilyResultsBox").removeClass("d-none");
+          $("#bulkFamilyPreviewBox").addClass("d-none");
+          CK.toast("Bulk import complete: " + result.createdCount + " created" + (result.skippedCount > 0 ? ", " + result.skippedCount + " skipped" : "") + ".", "success");
+          load();
+        }).fail(function (xhr) {
+          $("#bulkFamilyAlert").text(CK.api.errorMessage(xhr, "Could not import this file.")).removeClass("d-none");
+        }).always(function () {
+          $btn.prop("disabled", false).html('<i class="bi bi-cloud-upload me-1"></i>Import');
+        });
+      });
+
+      $("#bulkImportModal").on("hidden.bs.modal", resetBulkFamilyModal);
+
+      load();
+    });
+  </script>
+</body>
+</html>

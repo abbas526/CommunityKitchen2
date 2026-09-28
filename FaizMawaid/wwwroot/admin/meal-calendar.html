@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+  <title>Meal Calendar - Faiz al-Mawaid al-Burhaniyah Admin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+  <link href="../css/site.css?v=20260927b" rel="stylesheet">
+</head>
+<body>
+  <div id="ckNavbar"></div>
+
+  <main class="container my-4">
+    <div class="ck-page-header d-flex justify-content-between align-items-center flex-wrap gap-3">
+      <div>
+        <h1 class="mb-1"><i class="bi bi-calendar3 me-2"></i>Meal Calendar</h1>
+        <p class="ck-muted mb-0">A month at a glance. Click a day's meal to edit it, or "Add" on a day that's not planned yet.</p>
+      </div>
+      <div class="d-flex align-items-center gap-2">
+        <button type="button" class="btn btn-outline-primary" id="prevMonthBtn" title="Previous month"><i class="bi bi-chevron-left"></i></button>
+        <h5 class="mb-0 text-center" id="monthLabel" style="min-width:170px;"></h5>
+        <button type="button" class="btn btn-outline-primary" id="nextMonthBtn" title="Next month"><i class="bi bi-chevron-right"></i></button>
+        <button type="button" class="btn btn-outline-secondary" id="todayBtn">Today</button>
+      </div>
+    </div>
+
+    <div class="d-flex flex-wrap gap-3 mb-3 ck-small ck-muted">
+      <span><i class="bi bi-journal-text me-1"></i>Meal planned</span>
+      <span><i class="bi bi-x-circle-fill text-danger me-1"></i>Kitchen closed (Sunday or a marked non-serving day)</span>
+      <span><i class="bi bi-plus-circle me-1"></i>Not planned yet</span>
+    </div>
+
+    <div id="loadingBox" class="ck-loading"><div class="spinner-border text-primary"></div></div>
+
+    <div class="ck-cal-grid" id="calHead">
+      <div class="ck-cal-head">Sun</div>
+      <div class="ck-cal-head">Mon</div>
+      <div class="ck-cal-head">Tue</div>
+      <div class="ck-cal-head">Wed</div>
+      <div class="ck-cal-head">Thu</div>
+      <div class="ck-cal-head">Fri</div>
+      <div class="ck-cal-head">Sat</div>
+    </div>
+    <div class="ck-cal-grid" id="calGrid"></div>
+  </main>
+
+  <footer class="ck-footer text-center"><div class="container"><a href="https://www.thedawoodibohras.com/faiz-al-mawaid-al-burhaniyah/" target="_blank" rel="noopener" class="ck-footer-link">Faiz al-Mawaid al-Burhaniyah</a> Community Kitchen</div></footer>
+
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="../js/site.js?v=20260927b"></script>
+  <script>
+    $(function () {
+      var session = CK.session.requireAdmin();
+      if (!session) { return; }
+      CK.nav.render("admin", "kitchen");
+
+      var monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+      var todayIso = CK.today();
+      var todayNow = new Date();
+      var viewYear = todayNow.getFullYear();
+      var viewMonth = todayNow.getMonth(); // 0-11
+
+      function pad2(n) { return n < 10 ? "0" + n : String(n); }
+      function isoOf(d) { return d.getUTCFullYear() + "-" + pad2(d.getUTCMonth() + 1) + "-" + pad2(d.getUTCDate()); }
+
+      function renderMonthLabel() {
+        $("#monthLabel").text(monthNames[viewMonth] + " " + viewYear);
+      }
+
+      function buildGrid(gridStart, totalDays, mealsByDate, nsdByDate) {
+        var $grid = $("#calGrid").empty();
+        var cursor = new Date(gridStart.getTime());
+
+        for (var i = 0; i < totalDays; i++) {
+          var iso = isoOf(cursor);
+          var inMonth = (cursor.getUTCMonth() === viewMonth && cursor.getUTCFullYear() === viewYear);
+          var isToday = iso === todayIso;
+          var isSunday = cursor.getUTCDay() === 0;
+          var nsd = nsdByDate[iso];
+          var meal = mealsByDate[iso];
+
+          var classes = "ck-cal-day";
+          if (!inMonth) { classes += " ck-cal-outside"; }
+          if (isToday) { classes += " ck-cal-today"; }
+
+          var body;
+          if (isSunday || nsd) {
+            classes += " ck-cal-closed";
+            var reason = isSunday ? "Sunday" : (nsd.reason || "Non-serving day");
+            body = '<div class="ck-cal-meta text-danger" title="' + CK.esc(reason) + '"><i class="bi bi-x-circle-fill me-1"></i>' + CK.esc(reason) + '</div>';
+          } else if (meal) {
+            body =
+              '<div class="ck-cal-desc" title="' + CK.esc(meal.mealDescription) + '">' + CK.esc(meal.mealDescription) + '</div>' +
+              '<a href="meal-plans.html?edit=' + meal.id + '" class="ck-cal-meta"><i class="bi bi-pencil-square me-1"></i>Edit</a>';
+          } else if (inMonth) {
+            body = '<a href="meal-plans.html?date=' + iso + '" class="ck-cal-meta ck-muted"><i class="bi bi-plus-circle me-1"></i>Not planned &ndash; Add</a>';
+          } else {
+            body = "";
+          }
+
+          $grid.append(
+            '<div class="' + classes + '">' +
+              '<div class="ck-cal-daynum"><span>' + cursor.getUTCDate() + '</span>' + (isToday ? '<span class="badge text-bg-primary ck-small">Today</span>' : '') + '</div>' +
+              body +
+            '</div>'
+          );
+          cursor.setUTCDate(cursor.getUTCDate() + 1);
+        }
+      }
+
+      function load() {
+        renderMonthLabel();
+        $("#loadingBox").show();
+        $("#calGrid").empty();
+
+        var firstOfMonth = new Date(Date.UTC(viewYear, viewMonth, 1));
+        var lastOfMonth = new Date(Date.UTC(viewYear, viewMonth + 1, 0));
+        var gridStart = new Date(firstOfMonth.getTime());
+        gridStart.setUTCDate(gridStart.getUTCDate() - gridStart.getUTCDay());
+        var gridEnd = new Date(lastOfMonth.getTime());
+        gridEnd.setUTCDate(gridEnd.getUTCDate() + (6 - gridEnd.getUTCDay()));
+        var totalDays = Math.round((gridEnd.getTime() - gridStart.getTime()) / 86400000) + 1;
+
+        var fromIso = isoOf(gridStart), toIso = isoOf(gridEnd);
+
+        $.when(
+          CK.api.get("/api/mealplans?from=" + fromIso + "&to=" + toIso),
+          CK.api.get("/api/nonservingdays")
+        ).done(function (mealsResp, nsdResp) {
+          $("#loadingBox").hide();
+          var mealsByDate = {};
+          $.each(mealsResp[0] || [], function (i, m) { mealsByDate[m.mealDate] = m; });
+          var nsdByDate = {};
+          $.each(nsdResp[0] || [], function (i, n) { nsdByDate[n.theDate] = n; });
+          buildGrid(gridStart, totalDays, mealsByDate, nsdByDate);
+        }).fail(function (xhr) {
+          $("#loadingBox").hide();
+          CK.toast(CK.api.errorMessage(xhr, "Could not load the meal calendar."), "danger");
+        });
+      }
+
+      $("#prevMonthBtn").on("click", function () {
+        viewMonth--;
+        if (viewMonth < 0) { viewMonth = 11; viewYear--; }
+        load();
+      });
+      $("#nextMonthBtn").on("click", function () {
+        viewMonth++;
+        if (viewMonth > 11) { viewMonth = 0; viewYear++; }
+        load();
+      });
+      $("#todayBtn").on("click", function () {
+        var t = new Date();
+        viewYear = t.getFullYear();
+        viewMonth = t.getMonth();
+        load();
+      });
+
+      load();
+    });
+  </script>
+</body>
+</html>

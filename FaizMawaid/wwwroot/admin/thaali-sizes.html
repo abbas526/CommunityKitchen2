@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+  <title>Thaali Sizes - Faiz al-Mawaid al-Burhaniyah Admin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+  <link href="../css/site.css?v=20260927b" rel="stylesheet">
+</head>
+<body>
+  <div id="ckNavbar"></div>
+
+  <main class="container my-4" style="max-width:760px;">
+    <div class="ck-page-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+      <div>
+        <h1 class="mb-1"><i class="bi bi-box-seam-fill me-2"></i>Thaali Sizes</h1>
+        <p class="ck-muted mb-0">The 3&ndash;4 sizes families can be registered under.</p>
+      </div>
+      <button class="btn btn-primary" id="addBtn"><i class="bi bi-plus-lg me-1"></i>Add Size</button>
+    </div>
+
+    <div id="loadingBox" class="ck-loading"><div class="spinner-border text-primary"></div></div>
+    <div id="emptyBox" class="ck-empty-state d-none">
+      <i class="bi bi-box-seam"></i>
+      No thaali sizes yet. Add at least one before families can register.
+    </div>
+
+    <div class="table-responsive d-none" id="tableWrap">
+      <table class="table align-middle bg-white">
+        <thead><tr><th>Order</th><th>Name</th><th></th></tr></thead>
+        <tbody id="sizesBody"></tbody>
+      </table>
+    </div>
+  </main>
+
+  <div class="modal fade" id="sizeModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title" id="sizeModalTitle"><i class="bi bi-box-seam me-2"></i>Add Thaali Size</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body">
+          <div id="sizeAlert" class="alert alert-danger d-none"></div>
+          <form id="sizeForm" novalidate>
+            <input type="hidden" id="sizeId">
+            <div class="mb-3">
+              <label class="form-label" for="sizeName">Name</label>
+              <input type="text" class="form-control" id="sizeName" required maxlength="255" placeholder="e.g. Small, Medium, Large, Family Pack">
+              <div class="invalid-feedback">Please enter a name.</div>
+            </div>
+            <div class="mb-3">
+              <label class="form-label" for="sizeSortOrder">Display order</label>
+              <input type="number" class="form-control" id="sizeSortOrder" required min="0" max="255">
+              <div class="form-text">Controls the order sizes appear in dropdowns (smallest first).</div>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button class="btn btn-primary" id="saveSizeBtn"><i class="bi bi-check2 me-1"></i>Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="deleteSizeModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title"><i class="bi bi-exclamation-triangle text-danger me-2"></i>Delete Thaali Size</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body">
+          <div id="deleteSizeAlert" class="alert alert-danger d-none"></div>
+          <p class="mb-0">Delete <strong id="deleteSizeName"></strong>? This can't be undone. It can only be deleted if no family (current or past) has ever used it.</p>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button class="btn btn-danger" id="confirmDeleteSizeBtn"><i class="bi bi-trash me-1"></i>Delete</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer class="ck-footer text-center"><div class="container"><a href="https://www.thedawoodibohras.com/faiz-al-mawaid-al-burhaniyah/" target="_blank" rel="noopener" class="ck-footer-link">Faiz al-Mawaid al-Burhaniyah</a> Community Kitchen</div></footer>
+
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="../js/site.js?v=20260927b"></script>
+  <script>
+    $(function () {
+      var session = CK.session.requireAdmin();
+      if (!session) { return; }
+      CK.nav.render("admin", "kitchen");
+
+      function load() {
+        $("#loadingBox").show();
+        $("#tableWrap").addClass("d-none");
+        $("#emptyBox").addClass("d-none");
+        CK.api.get("/api/thaalisizes").done(function (sizes) {
+          $("#loadingBox").hide();
+          var $body = $("#sizesBody").empty();
+          if (!sizes || sizes.length === 0) {
+            $("#emptyBox").removeClass("d-none");
+            return;
+          }
+          $("#tableWrap").removeClass("d-none");
+          sizes.sort(function (a, b) { return a.sortOrder - b.sortOrder; });
+          $.each(sizes, function (i, s) {
+            $body.append(
+              '<tr>' +
+                '<td>' + s.sortOrder + '</td>' +
+                '<td class="fw-semibold">' + CK.esc(s.name) + '</td>' +
+                '<td class="text-end">' +
+                  '<button class="btn btn-sm btn-outline-secondary edit-btn me-1" data-id="' + s.id + '" data-name="' + CK.esc(s.name) + '" data-order="' + s.sortOrder + '"><i class="bi bi-pencil me-1"></i>Edit</button>' +
+                  '<button class="btn btn-sm btn-outline-danger delete-btn" data-id="' + s.id + '" data-name="' + CK.esc(s.name) + '"><i class="bi bi-trash me-1"></i>Delete</button>' +
+                '</td>' +
+              '</tr>'
+            );
+          });
+        }).fail(function (xhr) {
+          $("#loadingBox").hide();
+          CK.toast(CK.api.errorMessage(xhr, "Could not load thaali sizes."), "danger");
+        });
+      }
+
+      function openModal(id, name, order) {
+        $("#sizeAlert").addClass("d-none");
+        $(document.getElementById("sizeForm")).removeClass("was-validated");
+        $("#sizeId").val(id || "");
+        $("#sizeName").val(name || "");
+        $("#sizeSortOrder").val(order !== undefined ? order : "");
+        $("#sizeModalTitle").html(id ? '<i class="bi bi-pencil me-2"></i>Edit Thaali Size' : '<i class="bi bi-box-seam me-2"></i>Add Thaali Size');
+        new bootstrap.Modal(document.getElementById("sizeModal")).show();
+      }
+
+      $("#addBtn").on("click", function () { openModal(null, "", 0); });
+      $(document).on("click", ".edit-btn", function () {
+        openModal($(this).data("id"), $(this).data("name"), $(this).data("order"));
+      });
+
+      var deleteTargetId = null;
+      $(document).on("click", ".delete-btn", function () {
+        deleteTargetId = $(this).data("id");
+        $("#deleteSizeAlert").addClass("d-none");
+        $("#deleteSizeName").text($(this).data("name"));
+        $("#confirmDeleteSizeBtn").prop("disabled", false).html('<i class="bi bi-trash me-1"></i>Delete');
+        new bootstrap.Modal(document.getElementById("deleteSizeModal")).show();
+      });
+
+      $("#confirmDeleteSizeBtn").on("click", function () {
+        if (!deleteTargetId) { return; }
+        var $btn = $(this).prop("disabled", true).html('<span class="spinner-border spinner-border-sm"></span>');
+        CK.api.del("/api/thaalisizes/" + deleteTargetId).done(function () {
+          $("#deleteSizeModal").modal("hide");
+          CK.toast("Thaali size deleted.", "success");
+          load();
+        }).fail(function (xhr) {
+          $("#deleteSizeAlert").text(CK.api.errorMessage(xhr, "Could not delete this thaali size.")).removeClass("d-none");
+        }).always(function () { $btn.prop("disabled", false).html('<i class="bi bi-trash me-1"></i>Delete'); });
+      });
+
+      $("#saveSizeBtn").on("click", function () {
+        var form = document.getElementById("sizeForm");
+        if (!form.checkValidity()) { $(form).addClass("was-validated"); return; }
+
+        var id = $("#sizeId").val();
+        var payload = { name: $("#sizeName").val().trim(), sortOrder: parseInt($("#sizeSortOrder").val(), 10) };
+        var $btn = $(this).prop("disabled", true).html('<span class="spinner-border spinner-border-sm"></span>');
+
+        var request = id ? CK.api.put("/api/thaalisizes/" + id, payload) : CK.api.post("/api/thaalisizes", payload);
+        request.done(function () {
+          $("#sizeModal").modal("hide");
+          CK.toast(id ? "Thaali size updated." : "Thaali size added.", "success");
+          load();
+        }).fail(function (xhr) {
+          $("#sizeAlert").text(CK.api.errorMessage(xhr, "Could not save this thaali size.")).removeClass("d-none");
+        }).always(function () { $btn.prop("disabled", false).html('<i class="bi bi-check2 me-1"></i>Save'); });
+      });
+
+      load();
+    });
+  </script>
+</body>
+</html>

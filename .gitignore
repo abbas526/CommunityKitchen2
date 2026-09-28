@@ -1,0 +1,45 @@
+# Build results
+[Bb]in/
+[Oo]bj/
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Rider / VS Code
+.idea/
+.vscode/
+
+# NuGet
+*.nupkg
+**/packages/*
+!**/packages/build/
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# Test results
+[Tt]est[Rr]esult*/
+*.trx
+*.coverage
+*.coveragexml
+
+# Local secrets / environment-specific config
+# (real appsettings.json holds a live DB password + JWT signing key --
+# only the sanitized appsettings.Example.json is tracked, see that file)
+FaizMawaid/appsettings.json
+FaizMawaid/appsettings.*.json
+!FaizMawaid/appsettings.Example.json
+*.env
+.env.local
+
+# OS files
+.DS_Store
+Thumbs.db

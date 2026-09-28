@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+  <title>Non-Serving Days - Faiz al-Mawaid al-Burhaniyah Admin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+  <link href="../css/site.css?v=20260927b" rel="stylesheet">
+</head>
+<body>
+  <div id="ckNavbar"></div>
+
+  <main class="container my-4">
+    <div class="ck-page-header">
+      <h1 class="mb-1"><i class="bi bi-calendar-x-fill me-2"></i>Non-Serving Days</h1>
+      <p class="ck-muted mb-0">Sundays are already closed automatically &mdash; add the extra holidays and closures here.</p>
+    </div>
+
+    <div class="row g-4">
+      <div class="col-lg-5">
+        <div class="card">
+          <div class="card-body p-4">
+            <h5 class="mb-3"><i class="bi bi-plus-circle me-2"></i>Add a Non-Serving Day</h5>
+            <div id="formAlert" class="alert alert-danger d-none"></div>
+            <form id="addForm" novalidate>
+              <div class="mb-3">
+                <label class="form-label" for="theDate">Date</label>
+                <input type="date" class="form-control" id="theDate" required>
+                <div class="invalid-feedback">Please choose a date.</div>
+              </div>
+              <div class="mb-3">
+                <label class="form-label" for="reason">Reason <span class="ck-muted fw-normal">(optional)</span></label>
+                <input type="text" class="form-control" id="reason" maxlength="255" placeholder="e.g. Eid, Kitchen maintenance">
+              </div>
+              <div class="d-grid">
+                <button type="submit" class="btn btn-primary" id="addBtn"><i class="bi bi-plus-lg me-1"></i>Add</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-lg-7">
+        <div class="d-flex align-items-center gap-2 mb-3">
+          <label class="form-label mb-0" for="yearFilter">Year:</label>
+          <select class="form-select" id="yearFilter" style="width:auto;"></select>
+        </div>
+        <div id="loadingBox" class="ck-loading"><div class="spinner-border text-primary"></div></div>
+        <div id="emptyBox" class="ck-empty-state d-none"><i class="bi bi-calendar-check"></i>No non-serving days added for this year.</div>
+        <div class="table-responsive d-none" id="tableWrap">
+          <table class="table align-middle bg-white">
+            <thead><tr><th>Date</th><th>Reason</th><th></th></tr></thead>
+            <tbody id="daysBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="ck-footer text-center"><div class="container"><a href="https://www.thedawoodibohras.com/faiz-al-mawaid-al-burhaniyah/" target="_blank" rel="noopener" class="ck-footer-link">Faiz al-Mawaid al-Burhaniyah</a> Community Kitchen</div></footer>
+
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="../js/site.js?v=20260927b"></script>
+  <script>
+    $(function () {
+      var session = CK.session.requireAdmin();
+      if (!session) { return; }
+      CK.nav.render("admin", "kitchen");
+
+      var thisYear = new Date().getFullYear();
+      var $yearFilter = $("#yearFilter");
+      for (var y = thisYear - 1; y <= thisYear + 2; y++) {
+        $yearFilter.append('<option value="' + y + '"' + (y === thisYear ? " selected" : "") + '>' + y + '</option>');
+      }
+
+      function load() {
+        $("#loadingBox").show();
+        $("#tableWrap").addClass("d-none");
+        $("#emptyBox").addClass("d-none");
+        CK.api.get("/api/nonservingdays?year=" + $yearFilter.val()).done(function (days) {
+          $("#loadingBox").hide();
+          var $body = $("#daysBody").empty();
+          if (!days || days.length === 0) {
+            $("#emptyBox").removeClass("d-none");
+            return;
+          }
+          $("#tableWrap").removeClass("d-none");
+          days.sort(function (a, b) { return a.theDate < b.theDate ? -1 : 1; });
+          $.each(days, function (i, d) {
+            $body.append(
+              '<tr>' +
+                '<td>' + CK.fmt.date(d.theDate) + '</td>' +
+                '<td>' + (d.reason ? CK.esc(d.reason) : '<span class="ck-muted">&mdash;</span>') + '</td>' +
+                '<td class="text-end"><button class="btn btn-sm btn-outline-danger delete-btn" data-id="' + d.id + '"><i class="bi bi-trash me-1"></i>Remove</button></td>' +
+              '</tr>'
+            );
+          });
+        }).fail(function (xhr) {
+          $("#loadingBox").hide();
+          CK.toast(CK.api.errorMessage(xhr, "Could not load non-serving days."), "danger");
+        });
+      }
+
+      $yearFilter.on("change", load);
+
+      $("#addForm").on("submit", function (e) {
+        e.preventDefault();
+        $("#formAlert").addClass("d-none");
+        var form = this;
+        if (!form.checkValidity()) { $(form).addClass("was-validated"); return; }
+
+        var dateVal = $("#theDate").val();
+        var dayOfWeek = new Date(dateVal + "T00:00:00").getDay();
+        if (dayOfWeek === 0) {
+          $("#formAlert").text("Sundays are already a non-serving day by default -- no need to add them here.").removeClass("d-none");
+          return;
+        }
+
+        var payload = { theDate: dateVal, reason: $("#reason").val().trim() || null, createdByUserId: session.userId };
+        var $btn = $("#addBtn").prop("disabled", true).html('<span class="spinner-border spinner-border-sm me-1"></span>Adding&hellip;');
+
+        CK.api.post("/api/nonservingdays", payload).done(function () {
+          CK.toast("Non-serving day added.", "success");
+          $("#addForm")[0].reset();
+          $(form).removeClass("was-validated");
+          var addedYear = parseInt(dateVal.split("-")[0], 10);
+          if (String(addedYear) !== $yearFilter.val()) { $yearFilter.val(String(addedYear)); }
+          load();
+        }).fail(function (xhr) {
+          $("#formAlert").text(CK.api.errorMessage(xhr, "Could not add this non-serving day.")).removeClass("d-none");
+        }).always(function () {
+          $btn.prop("disabled", false).html('<i class="bi bi-plus-lg me-1"></i>Add');
+        });
+      });
+
+      $(document).on("click", ".delete-btn", function () {
+        var id = $(this).data("id");
+        var $btn = $(this).prop("disabled", true).html('<span class="spinner-border spinner-border-sm"></span>');
+        CK.api.del("/api/nonservingdays/" + id).done(function () {
+          CK.toast("Removed.", "success");
+          load();
+        }).fail(function (xhr) {
+          CK.toast(CK.api.errorMessage(xhr, "Could not remove this entry."), "danger");
+          $btn.prop("disabled", false).html('<i class="bi bi-trash me-1"></i>Remove');
+        });
+      });
+
+      load();
+    });
+  </script>
+</body>
+</html>

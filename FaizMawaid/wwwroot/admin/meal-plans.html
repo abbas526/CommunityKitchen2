@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+  <title>Meal Plans - Faiz al-Mawaid al-Burhaniyah Admin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+  <link href="../css/site.css?v=20260927b" rel="stylesheet">
+</head>
+<body>
+  <div id="ckNavbar"></div>
+
+  <main class="container my-4">
+    <div class="ck-page-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+      <div>
+        <h1 class="mb-1"><i class="bi bi-journal-text me-2"></i>Meal Plans</h1>
+        <p class="ck-muted mb-0">Enter what's cooking for upcoming serving days.</p>
+      </div>
+      <div class="d-flex gap-2 flex-wrap">
+        <button type="button" class="btn btn-outline-primary" id="bulkUploadOpenBtn" data-bs-toggle="modal" data-bs-target="#bulkUploadModal"><i class="bi bi-file-earmark-spreadsheet me-1"></i>Bulk Upload</button>
+        <a href="meal-plan-templates.html" class="btn btn-outline-primary"><i class="bi bi-collection me-1"></i>Manage Templates</a>
+      </div>
+    </div>
+
+    <div class="row g-4">
+      <div class="col-lg-5">
+        <div class="card">
+          <div class="card-body p-4">
+            <h5 class="mb-3"><i class="bi bi-plus-circle me-2"></i>Plan a Meal</h5>
+            <div id="formAlert" class="alert alert-danger d-none"></div>
+            <form id="addForm" novalidate>
+              <div class="mb-3">
+                <label class="form-label" for="mealDate">Date</label>
+                <input type="date" class="form-control" id="mealDate" required>
+                <div class="invalid-feedback">Please choose a date.</div>
+              </div>
+              <div class="mb-3" id="templateChipsBox">
+                <label class="form-label mb-1">Templates <span class="ck-muted fw-normal">(click or drag onto the box below)</span></label>
+                <div id="templateChips" class="d-flex flex-wrap gap-2"></div>
+              </div>
+              <div class="mb-3">
+                <label class="form-label d-flex justify-content-between" for="mealDescription">
+                  <span>Meal description</span>
+                  <span class="ck-muted fw-normal ck-small"><span id="charCount">0</span>/500</span>
+                </label>
+                <textarea class="form-control" id="mealDescription" required maxlength="500" rows="4" placeholder="e.g. Rice, dal, mixed vegetable curry, roti"></textarea>
+                <div class="invalid-feedback">Please describe the meal.</div>
+              </div>
+              <div class="d-grid">
+                <button type="submit" class="btn btn-primary" id="addBtn"><i class="bi bi-plus-lg me-1"></i>Save Meal</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-lg-7">
+        <div class="d-flex align-items-end gap-2 mb-3 flex-wrap">
+          <div>
+            <label class="form-label mb-1" for="fromDate">From</label>
+            <input type="date" class="form-control" id="fromDate">
+          </div>
+          <div>
+            <label class="form-label mb-1" for="toDate">To</label>
+            <input type="date" class="form-control" id="toDate">
+          </div>
+          <button class="btn btn-outline-primary" id="reloadBtn"><i class="bi bi-arrow-clockwise me-1"></i>Refresh</button>
+        </div>
+
+        <div id="loadingBox" class="ck-loading"><div class="spinner-border text-primary"></div></div>
+        <div id="emptyBox" class="ck-empty-state d-none"><i class="bi bi-journal-x"></i>No meals planned in this range yet.</div>
+        <div class="row g-3" id="mealsList"></div>
+      </div>
+    </div>
+  </main>
+
+  <div class="modal fade" id="bulkUploadModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title"><i class="bi bi-file-earmark-spreadsheet me-2"></i>Bulk Upload Meals</h5>
+          <button class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <p class="ck-muted">Upload an Excel file to plan meals for many days at once. Each row needs a Date and a Meal Description. If a date already has a meal planned, uploading it again overwrites that meal instead of adding a duplicate.</p>
+          <button type="button" class="btn btn-outline-primary btn-sm mb-3" id="downloadMealTemplateBtn"><i class="bi bi-download me-1"></i>Download Template</button>
+
+          <div id="bulkUploadAlert" class="alert alert-danger d-none"></div>
+
+          <div class="mb-3">
+            <label class="form-label" for="bulkMealFile">Excel file</label>
+            <input type="file" class="form-control" id="bulkMealFile" accept=".xlsx,.xls,.csv">
+          </div>
+
+          <div id="bulkMealPreviewBox" class="d-none">
+            <h6 class="mb-2">Preview <span class="ck-muted fw-normal" id="bulkMealPreviewCount"></span></h6>
+            <div class="table-responsive mb-3" style="max-height:260px;overflow-y:auto;">
+              <table class="table table-sm align-middle bg-white mb-0">
+                <thead><tr><th>Date</th><th>Meal Description</th><th></th></tr></thead>
+                <tbody id="bulkMealPreviewBody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div id="bulkMealResultsBox" class="d-none">
+            <h6 class="mb-2">Results</h6>
+            <div id="bulkMealResultsSummary" class="mb-2"></div>
+            <div class="table-responsive" style="max-height:260px;overflow-y:auto;">
+              <table class="table table-sm align-middle bg-white mb-0">
+                <thead><tr><th>Date</th><th>Status</th><th>Details</th></tr></thead>
+                <tbody id="bulkMealResultsBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+          <button class="btn btn-primary" id="bulkMealImportBtn" disabled><i class="bi bi-cloud-upload me-1"></i>Import</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="editModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title" id="editModalTitle"><i class="bi bi-pencil me-2"></i>Edit Meal</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body">
+          <div id="editAlert" class="alert alert-danger d-none"></div>
+          <input type="hidden" id="editId">
+          <label class="form-label mb-1">Templates <span class="ck-muted fw-normal">(click or drag onto the box below)</span></label>
+          <div id="editTemplateChips" class="d-flex flex-wrap gap-2 mb-3"></div>
+          <label class="form-label d-flex justify-content-between" for="editDescription">
+            <span>Meal description</span>
+            <span class="ck-muted fw-normal ck-small"><span id="editCharCount">0</span>/500</span>
+          </label>
+          <textarea class="form-control" id="editDescription" maxlength="500" rows="4"></textarea>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline-danger me-auto" id="deleteMealBtn"><i class="bi bi-trash me-1"></i>Delete</button>
+          <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button class="btn btn-primary" id="saveEditBtn"><i class="bi bi-check2 me-1"></i>Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer class="ck-footer text-center"><div class="container"><a href="https://www.thedawoodibohras.com/faiz-al-mawaid-al-burhaniyah/" target="_blank" rel="noopener" class="ck-footer-link">Faiz al-Mawaid al-Burhaniyah</a> Community Kitchen</div></footer>
+
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="../js/site.js?v=20260927b"></script>
+  <script>
+    $(function () {
+      var session = CK.session.requireAdmin();
+      if (!session) { return; }
+      CK.nav.render("admin", "kitchen");
+
+      var todayIso = CK.today();
+      $("#mealDate").attr("min", todayIso).val(todayIso);
+      $("#fromDate").val(todayIso);
+      $("#toDate").val(CK.addDays(todayIso, 30));
+
+      $("#mealDescription").on("input", function () { $("#charCount").text($(this).val().length); });
+      $("#editDescription").on("input", function () { $("#editCharCount").text($(this).val().length); });
+
+      // Meal plan templates -- click or drag a chip to drop its text into a textarea.
+      function insertTemplateText($textarea, text) {
+        var current = $textarea.val();
+        var combined = current && current.trim().length > 0 ? (current.replace(/\s+$/, "") + ", " + text) : text;
+        if (combined.length > 500) { combined = combined.slice(0, 500); }
+        $textarea.val(combined).trigger("input");
+      }
+
+      function renderTemplateChips($container, $targetTextarea) {
+        CK.api.get("/api/mealplantemplates").done(function (templates) {
+          $container.empty();
+          if (!templates || templates.length === 0) {
+            $container.html('<span class="ck-muted ck-small">No templates yet -- <a href="meal-plan-templates.html">add some</a> to speed up repeat meals.</span>');
+            return;
+          }
+          templates.sort(function (a, b) { return a.sortOrder - b.sortOrder; });
+          $.each(templates, function (i, t) {
+            var $chip = $(
+              '<button type="button" class="btn btn-sm btn-outline-primary ck-template-chip" draggable="true" title="' + CK.esc(t.mealDescription) + '">' +
+                '<i class="bi bi-grip-vertical me-1"></i>' + CK.esc(t.name) +
+              '</button>'
+            );
+            $chip.data("text", t.mealDescription);
+            $chip.on("click", function () { insertTemplateText($targetTextarea, $(this).data("text")); });
+            $chip.on("dragstart", function (e) {
+              e.originalEvent.dataTransfer.setData("text/plain", $(this).data("text"));
+              e.originalEvent.dataTransfer.effectAllowed = "copy";
+            });
+            $container.append($chip);
+          });
+        }).fail(function () {
+          $container.html('<span class="ck-muted ck-small">Could not load templates.</span>');
+        });
+      }
+
+      function wireDropTarget($textarea) {
+        $textarea.on("dragover", function (e) { e.preventDefault(); e.originalEvent.dataTransfer.dropEffect = "copy"; });
+        $textarea.on("drop", function (e) {
+          e.preventDefault();
+          var text = e.originalEvent.dataTransfer.getData("text/plain");
+          if (text) { insertTemplateText($(this), text); }
+        });
+      }
+      wireDropTarget($("#mealDescription"));
+      wireDropTarget($("#editDescription"));
+
+      function load() {
+        var from = $("#fromDate").val(), to = $("#toDate").val();
+        if (!from || !to) { return; }
+        $("#loadingBox").show();
+        $("#emptyBox").addClass("d-none");
+        var $list = $("#mealsList").empty();
+
+        CK.api.get("/api/mealplans?from=" + from + "&to=" + to).done(function (meals) {
+          $("#loadingBox").hide();
+          if (!meals || meals.length === 0) {
+            $("#emptyBox").removeClass("d-none");
+            return;
+          }
+          meals.sort(function (a, b) { return a.mealDate < b.mealDate ? -1 : 1; });
+          $.each(meals, function (i, m) {
+            $list.append(
+              '<div class="col-md-6">' +
+                '<div class="ck-meal-card">' +
+                  '<div class="d-flex justify-content-between align-items-start">' +
+                    '<div class="ck-meal-date">' + CK.fmt.date(m.mealDate) + '</div>' +
+                    '<button class="btn btn-sm btn-outline-secondary edit-meal-btn" data-id="' + m.id + '" data-date="' + CK.esc(CK.fmt.date(m.mealDate)) + '" data-desc="' + CK.esc(m.mealDescription) + '"><i class="bi bi-pencil"></i></button>' +
+                  '</div>' +
+                  '<div class="ck-meal-desc mt-2">' + CK.esc(m.mealDescription) + '</div>' +
+                '</div>' +
+              '</div>'
+            );
+          });
+        }).fail(function (xhr) {
+          $("#loadingBox").hide();
+          CK.toast(CK.api.errorMessage(xhr, "Could not load meal plans."), "danger");
+        });
+      }
+
+      $("#reloadBtn").on("click", load);
+
+      $("#addForm").on("submit", function (e) {
+        e.preventDefault();
+        $("#formAlert").addClass("d-none");
+        var form = this;
+        if (!form.checkValidity()) { $(form).addClass("was-validated"); return; }
+
+        var dateVal = $("#mealDate").val();
+        if (new Date(dateVal + "T00:00:00").getDay() === 0) {
+          $("#formAlert").text("The kitchen doesn't serve food on Sundays.").removeClass("d-none");
+          return;
+        }
+
+        var payload = { mealDate: dateVal, mealDescription: $("#mealDescription").val().trim(), createdByUserId: session.userId };
+        var $btn = $("#addBtn").prop("disabled", true).html('<span class="spinner-border spinner-border-sm me-1"></span>Saving&hellip;');
+
+        CK.api.post("/api/mealplans", payload).done(function () {
+          CK.toast("Meal saved.", "success");
+          $("#addForm")[0].reset();
+          $(form).removeClass("was-validated");
+          $("#mealDate").val(todayIso);
+          $("#charCount").text("0");
+          load();
+        }).fail(function (xhr) {
+          $("#formAlert").text(CK.api.errorMessage(xhr, "Could not save this meal.")).removeClass("d-none");
+        }).always(function () {
+          $btn.prop("disabled", false).html('<i class="bi bi-plus-lg me-1"></i>Save Meal');
+        });
+      });
+
+      $(document).on("click", ".edit-meal-btn", function () {
+        $("#editAlert").addClass("d-none");
+        $("#editId").val($(this).data("id"));
+        $("#editModalTitle").html('<i class="bi bi-pencil me-2"></i>Edit Meal &mdash; ' + $(this).data("date"));
+        var desc = $(this).data("desc");
+        $("#editDescription").val(desc);
+        $("#editCharCount").text(String(desc).length);
+        new bootstrap.Modal(document.getElementById("editModal")).show();
+      });
+
+      $("#saveEditBtn").on("click", function () {
+        var id = $("#editId").val();
+        var payload = { mealDescription: $("#editDescription").val().trim(), updatedByUserId: session.userId };
+        var $btn = $(this).prop("disabled", true).html('<span class="spinner-border spinner-border-sm"></span>');
+        CK.api.put("/api/mealplans/" + id, payload).done(function () {
+          $("#editModal").modal("hide");
+          CK.toast("Meal updated.", "success");
+          load();
+        }).fail(function (xhr) {
+          $("#editAlert").text(CK.api.errorMessage(xhr, "Could not update this meal.")).removeClass("d-none");
+        }).always(function () { $btn.prop("disabled", false).html('<i class="bi bi-check2 me-1"></i>Save'); });
+      });
+
+      $("#deleteMealBtn").on("click", function () {
+        var id = $("#editId").val();
+        var $btn = $(this).prop("disabled", true).html('<span class="spinner-border spinner-border-sm"></span>');
+        CK.api.del("/api/mealplans/" + id).done(function () {
+          $("#editModal").modal("hide");
+          CK.toast("Meal deleted.", "success");
+          load();
+        }).fail(function (xhr) {
+          $("#editAlert").text(CK.api.errorMessage(xhr, "Could not delete this meal.")).removeClass("d-none");
+        }).always(function () { $btn.prop("disabled", false).html('<i class="bi bi-trash me-1"></i>Delete'); });
+      });
+
+      renderTemplateChips($("#templateChips"), $("#mealDescription"));
+      $("#editModal").on("show.bs.modal", function () { renderTemplateChips($("#editTemplateChips"), $("#editDescription")); });
+
+      // ---------------------------------------------------------------
+      // Deep links from the Meal Calendar page: ?edit=<mealId> opens the
+      // edit modal for that meal directly; ?date=<YYYY-MM-DD> prefills the
+      // "Plan a Meal" form's date for a day that has nothing planned yet.
+      // ---------------------------------------------------------------
+      (function handleDeepLink() {
+        var params = new URLSearchParams(window.location.search);
+        var editId = params.get("edit");
+        var prefillDate = params.get("date");
+        if (!editId && !prefillDate) { return; }
+
+        history.replaceState(null, "", window.location.pathname);
+
+        if (editId) {
+          CK.api.get("/api/mealplans/" + editId).done(function (m) {
+            $("#editId").val(m.id);
+            $("#editModalTitle").html('<i class="bi bi-pencil me-2"></i>Edit Meal &mdash; ' + CK.fmt.date(m.mealDate));
+            $("#editDescription").val(m.mealDescription);
+            $("#editCharCount").text(String(m.mealDescription).length);
+            new bootstrap.Modal(document.getElementById("editModal")).show();
+          }).fail(function (xhr) {
+            CK.toast(CK.api.errorMessage(xhr, "Could not load that meal."), "danger");
+          });
+        } else if (prefillDate) {
+          $("#mealDate").val(prefillDate);
+          $("html, body").animate({ scrollTop: Math.max(0, $("#addForm").offset().top - 90) }, 200);
+        }
+      })();
+
+      // ---------------------------------------------------------------
+      // Bulk Upload
+      // ---------------------------------------------------------------
+      var MEAL_HEADERS = [
+        { key: "mealDate", label: "Date", width: 16 },
+        { key: "mealDescription", label: "Meal Description", width: 50 }
+      ];
+      var parsedMealRows = [];
+
+      function resetBulkMealModal() {
+        $("#bulkUploadAlert").addClass("d-none");
+        $("#bulkMealFile").val("");
+        $("#bulkMealPreviewBox").addClass("d-none");
+        $("#bulkMealResultsBox").addClass("d-none");
+        $("#bulkMealImportBtn").prop("disabled", true);
+        parsedMealRows = [];
+      }
+
+      $("#downloadMealTemplateBtn").on("click", function () {
+        CK.excel.downloadTemplate(
+          "meal-plan-upload-template.xlsx",
+          "Meals",
+          MEAL_HEADERS,
+          [
+            { mealDate: CK.addDays(todayIso, 1), mealDescription: "Khichdi, Kadhi, Papad" },
+            { mealDate: CK.addDays(todayIso, 2), mealDescription: "Biryani, Raita, Salad" }
+          ],
+          [
+            "How to fill this in:",
+            "- Date: use the YYYY-MM-DD format, e.g. 2026-10-05.",
+            "- Meal Description: up to 500 characters.",
+            "- One row per day -- Sundays and days marked as non-serving are skipped automatically.",
+            "- If a date already has a meal planned, uploading it again overwrites that meal (not a duplicate).",
+            "- Delete these two example rows before uploading, or just add your own rows below them."
+          ]
+        );
+      });
+
+      $("#bulkMealFile").on("change", function () {
+        var file = this.files && this.files[0];
+        $("#bulkUploadAlert").addClass("d-none");
+        $("#bulkMealResultsBox").addClass("d-none");
+        if (!file) { return; }
+
+        CK.excel.readRows(file, MEAL_HEADERS, function (err, rows) {
+          if (err) { $("#bulkUploadAlert").text(err).removeClass("d-none"); return; }
+          if (rows.length === 0) { $("#bulkUploadAlert").text("That file doesn't have any rows in it.").removeClass("d-none"); return; }
+
+          parsedMealRows = [];
+          var $body = $("#bulkMealPreviewBody").empty();
+          var problems = 0;
+
+          $.each(rows, function (i, row) {
+            var isoDate = CK.excel.parseDateCell(row.mealDate);
+            var desc = String(row.mealDescription || "").trim();
+            var issue = null;
+            if (!isoDate) { issue = "Couldn't understand this date -- use YYYY-MM-DD."; }
+            else if (!desc) { issue = "Meal description is required."; }
+            else if (desc.length > 500) { issue = "Meal description is over 500 characters."; }
+
+            if (issue) {
+              problems++;
+              $body.append('<tr class="table-warning"><td>' + CK.esc(String(row.mealDate)) + '</td><td>' + CK.esc(desc) + '</td><td class="text-danger ck-small">' + CK.esc(issue) + '</td></tr>');
+            } else {
+              parsedMealRows.push({ mealDate: isoDate, mealDescription: desc });
+              $body.append('<tr><td>' + CK.esc(isoDate) + '</td><td>' + CK.esc(desc) + '</td><td class="text-success ck-small"><i class="bi bi-check-lg"></i></td></tr>');
+            }
+          });
+
+          $("#bulkMealPreviewCount").text("(" + rows.length + " row" + (rows.length === 1 ? "" : "s") + (problems > 0 ? ", " + problems + " with a problem" : "") + ")");
+          $("#bulkMealPreviewBox").removeClass("d-none");
+          $("#bulkMealImportBtn").prop("disabled", parsedMealRows.length === 0);
+        });
+      });
+
+      $("#bulkMealImportBtn").on("click", function () {
+        if (parsedMealRows.length === 0) { return; }
+        var $btn = $(this).prop("disabled", true).html('<span class="spinner-border spinner-border-sm me-1"></span>Importing&hellip;');
+        $("#bulkUploadAlert").addClass("d-none");
+
+        CK.api.post("/api/mealplans/bulk-import", { items: parsedMealRows, createdByUserId: session.userId }).done(function (result) {
+          $("#bulkMealResultsSummary").html(
+            '<span class="badge text-bg-success me-2">' + result.createdCount + ' created</span>' +
+            '<span class="badge text-bg-info me-2">' + result.updatedCount + ' updated</span>' +
+            (result.skippedCount > 0 ? '<span class="badge text-bg-secondary">' + result.skippedCount + ' skipped</span>' : '')
+          );
+          var $rbody = $("#bulkMealResultsBody").empty();
+          $.each(result.rows, function (i, r) {
+            var badgeClass = r.status === "Created" ? "text-bg-success" : (r.status === "Updated" ? "text-bg-info" : "text-bg-secondary");
+            $rbody.append('<tr><td>' + CK.esc(r.mealDate) + '</td><td><span class="badge ' + badgeClass + '">' + r.status + '</span></td><td class="ck-small">' + CK.esc(r.message || "") + '</td></tr>');
+          });
+          $("#bulkMealResultsBox").removeClass("d-none");
+          $("#bulkMealPreviewBox").addClass("d-none");
+          CK.toast("Bulk upload complete: " + result.createdCount + " created, " + result.updatedCount + " updated" + (result.skippedCount > 0 ? ", " + result.skippedCount + " skipped" : "") + ".", "success");
+          load();
+        }).fail(function (xhr) {
+          $("#bulkUploadAlert").text(CK.api.errorMessage(xhr, "Could not import this file.")).removeClass("d-none");
+        }).always(function () {
+          $btn.prop("disabled", false).html('<i class="bi bi-cloud-upload me-1"></i>Import');
+        });
+      });
+
+      $("#bulkUploadModal").on("hidden.bs.modal", resetBulkMealModal);
+
+      load();
+    });
+  </script>
+</body>
+</html>

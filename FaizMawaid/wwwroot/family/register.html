@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+  <title>Register Your Family - Faiz al-Mawaid al-Burhaniyah</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+  <link href="../css/site.css?v=20260927b" rel="stylesheet">
+</head>
+<body>
+  <div id="ckNavbar"></div>
+
+  <main class="container" style="max-width:720px;">
+    <div class="ck-page-header text-center">
+      <div class="ck-eyebrow">Family Head</div>
+      <h1><i class="bi bi-person-plus-fill me-2"></i>Register Your Family</h1>
+      <p class="ck-muted">Tell us a bit about your household. An Admin will review and approve your registration.</p>
+    </div>
+
+    <div class="card ck-card-elevated mb-5">
+      <div class="card-body p-4 p-md-5">
+
+        <div id="successBox" class="d-none text-center py-4">
+          <i class="bi bi-check-circle-fill" style="font-size:3rem;color:var(--ck-primary);"></i>
+          <h3 class="mt-3">Registration submitted!</h3>
+          <p class="ck-muted">An Admin will review your details and approve your thaali. You can check your status any time.</p>
+          <a href="login.html" class="btn btn-primary btn-lg mt-2"><i class="bi bi-box-arrow-in-right me-1"></i> Go to My Thaali</a>
+        </div>
+
+        <form id="registerForm" novalidate>
+          <div id="formAlert" class="alert alert-danger d-none" role="alert"></div>
+
+          <h5 class="mb-3"><i class="bi bi-person-lines-fill me-2"></i>Family Head details</h5>
+          <div class="row g-3 mb-4">
+            <div class="col-md-6">
+              <label for="fullName" class="form-label">Full name</label>
+              <input type="text" class="form-control" id="fullName" required maxlength="255" placeholder="e.g. Fatema Rangwala">
+              <div class="invalid-feedback">Please enter your full name.</div>
+            </div>
+            <div class="col-md-6">
+              <label for="email" class="form-label">Email address</label>
+              <input type="email" class="form-control" id="email" required maxlength="255" placeholder="you@example.com">
+              <div class="invalid-feedback">Please enter a valid email address.</div>
+            </div>
+            <div class="col-md-6">
+              <label for="sabilNumber" class="form-label">Sabil Number</label>
+              <input type="text" class="form-control" id="sabilNumber" required maxlength="50" placeholder="e.g. 12345">
+              <div class="form-text">The unique number assigned to your family by the Community Head.</div>
+              <div class="invalid-feedback">Please enter your family's Sabil Number.</div>
+            </div>
+            <div class="col-md-6">
+              <label for="phone" class="form-label">Phone <span class="ck-muted fw-normal">(optional)</span></label>
+              <input type="tel" class="form-control" id="phone" maxlength="30" placeholder="e.g. 98765 43210">
+            </div>
+            <div class="col-md-6">
+              <label for="password" class="form-label">Password</label>
+              <input type="password" class="form-control" id="password" required minlength="8" maxlength="255" placeholder="At least 8 characters">
+              <div class="form-text">You'll use this to sign in and see your family's thaali.</div>
+              <div class="invalid-feedback">Please choose a password of at least 8 characters.</div>
+            </div>
+          </div>
+
+          <h5 class="mb-3"><i class="bi bi-house-door-fill me-2"></i>Household details</h5>
+          <div class="row g-3 mb-4">
+            <div class="col-md-8">
+              <label for="address" class="form-label">Address <span class="ck-muted fw-normal">(optional)</span></label>
+              <input type="text" class="form-control" id="address" maxlength="500" placeholder="Where should the thaali be delivered / collected from?">
+            </div>
+            <div class="col-md-4">
+              <label for="numberOfMembers" class="form-label">Family members <span class="ck-muted fw-normal">(optional)</span></label>
+              <input type="number" class="form-control" id="numberOfMembers" min="1" max="50" placeholder="e.g. 4">
+            </div>
+            <div class="col-md-8">
+              <label for="areaId" class="form-label">Area / Tower <span class="ck-muted fw-normal">(optional)</span></label>
+              <select class="form-select" id="areaId">
+                <option value="" selected>Loading areas&hellip;</option>
+              </select>
+              <div class="form-text">Pick this only if a Delivery Person brings your thaali home. Leave blank if you'll collect it from the kitchen yourself.</div>
+            </div>
+          </div>
+
+          <h5 class="mb-3"><i class="bi bi-box-seam-fill me-2"></i>Thaali size</h5>
+          <div class="mb-4">
+            <label for="thaaliSizeId" class="form-label">Choose the thaali size for your family</label>
+            <select class="form-select" id="thaaliSizeId" required>
+              <option value="" selected disabled>Loading sizes&hellip;</option>
+            </select>
+            <div class="form-text">You (or the Admin) can change this later if your family's needs change.</div>
+            <div class="invalid-feedback">Please choose a thaali size.</div>
+          </div>
+
+          <div id="noSizesNotice" class="alert alert-warning d-none">
+            <i class="bi bi-exclamation-triangle-fill me-1"></i>
+            No thaali sizes have been set up yet. Please ask the Kitchen Admin to add sizes before you register.
+          </div>
+
+          <div class="d-grid mt-4">
+            <button type="submit" class="btn btn-primary btn-lg" id="submitBtn">
+              <i class="bi bi-send-fill me-1"></i> Submit Registration
+            </button>
+          </div>
+          <p class="text-center ck-muted mt-3 mb-0">
+            Already registered? <a href="login.html">Go to My Thaali</a>
+          </p>
+        </form>
+      </div>
+    </div>
+  </main>
+
+  <footer class="ck-footer text-center">
+    <div class="container"><a href="https://www.thedawoodibohras.com/faiz-al-mawaid-al-burhaniyah/" target="_blank" rel="noopener" class="ck-footer-link">Faiz al-Mawaid al-Burhaniyah</a> Community Kitchen</div>
+  </footer>
+
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="../js/site.js?v=20260927b"></script>
+  <script>
+    $(function () {
+      CK.nav.render("guest", null);
+
+      function showAlert(message) {
+        $("#formAlert").text(message).removeClass("d-none");
+        $("html, body").animate({ scrollTop: $("#formAlert").offset().top - 100 }, 250);
+      }
+
+      // Load thaali sizes for the dropdown.
+      CK.api.get("/api/thaalisizes").done(function (sizes) {
+        var $select = $("#thaaliSizeId");
+        $select.empty();
+        if (!sizes || sizes.length === 0) {
+          $select.append('<option value="" selected disabled>No sizes available</option>');
+          $("#noSizesNotice").removeClass("d-none");
+          $("#submitBtn").prop("disabled", true);
+          return;
+        }
+        $select.append('<option value="" selected disabled>Choose a size&hellip;</option>');
+        sizes.sort(function (a, b) { return a.sortOrder - b.sortOrder; });
+        $.each(sizes, function (i, s) {
+          $select.append('<option value="' + s.id + '">' + CK.esc(s.name) + '</option>');
+        });
+      }).fail(function (xhr) {
+        showAlert(CK.api.errorMessage(xhr, "Could not load thaali sizes."));
+      });
+
+      // Load areas for the optional Area/Tower dropdown.
+      CK.api.get("/api/areas").done(function (areas) {
+        var $select = $("#areaId");
+        $select.empty();
+        $select.append('<option value="" selected>Not sure / I\'ll pick it up from the kitchen</option>');
+        areas = areas || [];
+        areas.sort(function (a, b) { return a.sortOrder - b.sortOrder; });
+        $.each(areas, function (i, a) {
+          $select.append('<option value="' + a.id + '">' + CK.esc(a.name) + '</option>');
+        });
+      }).fail(function () {
+        var $select = $("#areaId");
+        $select.empty();
+        $select.append('<option value="" selected>Not sure / I\'ll pick it up from the kitchen</option>');
+      });
+
+      $("#registerForm").on("submit", function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        $("#formAlert").addClass("d-none");
+
+        var form = this;
+        if (!form.checkValidity()) {
+          $(form).addClass("was-validated");
+          return;
+        }
+        $(form).addClass("was-validated");
+
+        var membersVal = $("#numberOfMembers").val();
+        var areaVal = $("#areaId").val();
+        var payload = {
+          fullName: $("#fullName").val().trim(),
+          email: $("#email").val().trim(),
+          sabilNumber: $("#sabilNumber").val().trim(),
+          phone: $("#phone").val().trim() || null,
+          address: $("#address").val().trim() || null,
+          areaId: areaVal ? parseInt(areaVal, 10) : null,
+          numberOfMembers: membersVal ? parseInt(membersVal, 10) : null,
+          thaaliSizeId: parseInt($("#thaaliSizeId").val(), 10),
+          password: $("#password").val()
+        };
+
+        var $btn = $("#submitBtn").prop("disabled", true).html('<span class="spinner-border spinner-border-sm me-1"></span> Submitting&hellip;');
+
+        CK.api.post("/api/families/register", payload).done(function () {
+          $("#registerForm").addClass("d-none");
+          $("#successBox").removeClass("d-none");
+        }).fail(function (xhr) {
+          var msg = xhr.status === 500
+            ? "Something went wrong while registering. This email or Sabil Number may already be registered -- try 'Go to My Thaali' instead, or contact the Admin."
+            : CK.api.errorMessage(xhr, "Could not submit your registration.");
+          showAlert(msg);
+          $btn.prop("disabled", false).html('<i class="bi bi-send-fill me-1"></i> Submit Registration');
+        });
+      });
+    });
+  </script>
+</body>
+</html>

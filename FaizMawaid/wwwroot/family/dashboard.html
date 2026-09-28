@@ -1,0 +1,843 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+  <title>My Thaali - Faiz al-Mawaid al-Burhaniyah</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+  <link href="../css/site.css?v=20260927b" rel="stylesheet">
+</head>
+<body>
+  <div id="ckNavbar"></div>
+
+  <main class="container my-4" id="pageContent" style="display:none;">
+
+    <div id="statusBanner"></div>
+
+    <div class="d-flex justify-content-between align-items-start flex-wrap gap-3 mb-3">
+      <div>
+        <h1 class="mb-1"><i class="bi bi-egg-fried me-2"></i>My Thaali</h1>
+        <p class="ck-muted mb-0">Upcoming meals, cancellations, and feedback.</p>
+      </div>
+      <div class="d-flex flex-column gap-2" style="max-width:320px;">
+        <div id="deliveryPersonBox"></div>
+        <div id="closureNoticeBox"></div>
+      </div>
+    </div>
+
+    <!-- Upcoming meals -->
+    <div class="ck-section-title"><i class="bi bi-egg-fried"></i><h5 class="mb-0">Upcoming Meals</h5></div>
+    <div id="mealsLoading" class="ck-loading"><div class="spinner-border text-primary"></div></div>
+    <div class="row g-3" id="mealsList"></div>
+    <div id="mealsEmpty" class="ck-empty-state d-none">
+      <i class="bi bi-calendar3"></i>
+      No upcoming meals have been posted yet.
+    </div>
+
+    <hr class="my-5">
+
+    <div class="row g-4">
+      <!-- Cancel thaali -->
+      <div class="col-lg-5">
+        <div class="ck-section-title"><i class="bi bi-hand-thumbs-up"></i><h5 class="mb-0">Cancel a Thaali</h5></div>
+        <div class="card">
+          <div class="card-body p-4">
+            <p class="ck-muted">Won't need your thaali on a day (or a few days)? Let us know so the kitchen doesn't prepare it &mdash; every bit helps reduce waste.</p>
+            <div id="cancelAlert" class="alert alert-danger d-none"></div>
+            <form id="cancelForm" novalidate>
+              <div class="row g-3">
+                <div class="col-6">
+                  <label class="form-label" for="cStartDate">From</label>
+                  <input type="date" class="form-control" id="cStartDate" required>
+                </div>
+                <div class="col-6">
+                  <label class="form-label" for="cEndDate">To</label>
+                  <input type="date" class="form-control" id="cEndDate" required>
+                </div>
+                <div class="col-12">
+                  <label class="form-label" for="cReason">Reason <span class="ck-muted fw-normal">(optional)</span></label>
+                  <input type="text" class="form-control" id="cReason" maxlength="255" placeholder="e.g. Travelling">
+                </div>
+              </div>
+              <div class="d-grid mt-3">
+                <button type="submit" class="btn btn-accent" id="cancelSubmitBtn"><i class="bi bi-x-circle me-1"></i>Cancel This Thaali</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+
+      <!-- My cancellations -->
+      <div class="col-lg-7">
+        <div class="ck-section-title"><i class="bi bi-list-check"></i><h5 class="mb-0">My Cancellations</h5></div>
+        <div class="table-responsive">
+          <table class="table align-middle bg-white">
+            <thead><tr><th>Dates</th><th>Reason</th><th>Status</th><th></th></tr></thead>
+            <tbody id="cancellationsBody"></tbody>
+          </table>
+        </div>
+        <div id="cancellationsEmpty" class="ck-empty-state d-none">
+          <i class="bi bi-inboxes"></i>
+          No cancellations yet.
+        </div>
+      </div>
+    </div>
+
+    <hr class="my-5">
+
+    <!-- Feedback -->
+    <div id="feedback"></div>
+    <div class="ck-section-title"><i class="bi bi-chat-left-text"></i><h5 class="mb-0">Feedback</h5></div>
+    <div class="row g-4">
+      <div class="col-lg-5">
+        <div class="card">
+          <div class="card-body p-4">
+            <p class="ck-muted">Have a question or something to tell the kitchen team? Only Admins can see your message, and you'll see their reply here once they respond.</p>
+            <div id="feedbackAlert" class="alert alert-danger d-none"></div>
+            <form id="feedbackForm" novalidate>
+              <div class="mb-3">
+                <label class="form-label" for="feedbackMessage">Your message</label>
+                <textarea class="form-control" id="feedbackMessage" rows="4" maxlength="1000" required></textarea>
+                <div class="form-text text-end"><span id="feedbackCharCount">0</span>/1000</div>
+              </div>
+              <div class="d-grid">
+                <button type="submit" class="btn btn-accent" id="feedbackSubmitBtn"><i class="bi bi-send me-1"></i>Send Feedback</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+      <div class="col-lg-7">
+        <div id="feedbackListLoading" class="ck-loading"><div class="spinner-border text-primary"></div></div>
+        <div id="feedbackList" class="d-flex flex-column gap-3"></div>
+        <div id="feedbackEmpty" class="ck-empty-state d-none">
+          <i class="bi bi-chat-left-heart"></i>
+          You haven't sent any feedback yet.
+        </div>
+      </div>
+    </div>
+
+    <hr class="my-5">
+
+    <!-- Family overview (kept at the bottom, per request) -->
+    <div class="ck-section-title"><i class="bi bi-house-heart"></i><h5 class="mb-0">Your Family</h5></div>
+    <div class="row g-4">
+      <div class="col-lg-6">
+        <div class="card ck-card-elevated h-100">
+          <div class="card-body p-4">
+            <dl class="row mb-0">
+              <dt class="col-5 ck-muted fw-normal">Head</dt><dd class="col-7" id="fFullName">&mdash;</dd>
+              <dt class="col-5 ck-muted fw-normal">Sabil No.</dt><dd class="col-7" id="fSabilNumber">&mdash;</dd>
+              <dt class="col-5 ck-muted fw-normal">Email</dt><dd class="col-7" id="fEmail">&mdash;</dd>
+              <dt class="col-5 ck-muted fw-normal">Phone</dt><dd class="col-7" id="fPhone">&mdash;</dd>
+              <dt class="col-5 ck-muted fw-normal">Address</dt><dd class="col-7" id="fAddress">&mdash;</dd>
+              <dt class="col-5 ck-muted fw-normal">Area / Tower</dt><dd class="col-7" id="fArea">&mdash;</dd>
+              <dt class="col-5 ck-muted fw-normal">Members</dt><dd class="col-7" id="fMembers">&mdash;</dd>
+              <dt class="col-5 ck-muted fw-normal">Status</dt><dd class="col-7" id="fStatus">&mdash;</dd>
+              <dt class="col-5 ck-muted fw-normal">Since</dt><dd class="col-7" id="fSince">&mdash;</dd>
+            </dl>
+
+            <hr>
+            <div class="d-flex justify-content-between align-items-center">
+              <div>
+                <div class="ck-muted small">Address / Area</div>
+                <div id="addressChangeStatus" class="ck-small">&nbsp;</div>
+              </div>
+              <button class="btn btn-outline-primary btn-sm" id="requestAddressChangeBtn" data-bs-toggle="modal" data-bs-target="#addressChangeModal">
+                <i class="bi bi-house-gear me-1"></i>Request Change
+              </button>
+            </div>
+
+            <button class="btn btn-link p-0 mt-2" type="button" data-bs-toggle="collapse" data-bs-target="#addressHistoryCollapse">
+              <i class="bi bi-clock-history me-1"></i>View address change history
+            </button>
+            <div class="collapse mt-2" id="addressHistoryCollapse">
+              <div id="addressHistoryBox" class="ck-small"></div>
+            </div>
+
+            <hr>
+            <div class="d-flex justify-content-between align-items-center">
+              <div>
+                <div class="ck-muted small">Current thaali size</div>
+                <div class="fs-4 fw-bold text-primary" id="fThaaliSize">&mdash;</div>
+                <div id="sizeChangeStatus" class="ck-small">&nbsp;</div>
+              </div>
+              <button class="btn btn-outline-primary btn-sm" id="requestSizeChangeBtn" data-bs-toggle="modal" data-bs-target="#changeSizeModal">
+                <i class="bi bi-arrow-repeat me-1"></i>Request Change
+              </button>
+            </div>
+
+            <button class="btn btn-link p-0 mt-4" type="button" data-bs-toggle="collapse" data-bs-target="#sizeHistoryCollapse">
+              <i class="bi bi-clock-history me-1"></i>View thaali size history
+            </button>
+            <div class="collapse mt-2" id="sizeHistoryCollapse">
+              <div id="sizeHistoryBox" class="ck-small"></div>
+            </div>
+
+            <button class="btn btn-link p-0 mt-2" type="button" data-bs-toggle="collapse" data-bs-target="#sizeRequestHistoryCollapse">
+              <i class="bi bi-clock-history me-1"></i>View size change requests
+            </button>
+            <div class="collapse mt-2" id="sizeRequestHistoryCollapse">
+              <div id="sizeRequestHistoryBox" class="ck-small"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <div class="container my-5" id="pendingContent" style="display:none;">
+    <div class="text-center py-5">
+      <i class="bi bi-hourglass-split" style="font-size:3rem;color:var(--ck-warning);"></i>
+      <h3 class="mt-3">Awaiting Admin Approval</h3>
+      <p class="ck-muted mx-auto" style="max-width:480px;">
+        Thanks for registering! An Admin will review your details soon. Check back here any time to see your status.
+      </p>
+    </div>
+  </div>
+
+  <!-- Request thaali size change modal -->
+  <div class="modal fade" id="changeSizeModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title"><i class="bi bi-arrow-repeat me-2"></i>Request Thaali Size Change</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div id="sizeAlert" class="alert alert-danger d-none"></div>
+          <p class="ck-muted small">An Admin reviews these before anything changes -- you'll see a note here once it's decided.</p>
+          <form id="changeSizeForm" novalidate>
+            <div class="mb-3">
+              <label class="form-label" for="newSizeId">New size</label>
+              <select class="form-select" id="newSizeId" required></select>
+            </div>
+            <div class="mb-3">
+              <label class="form-label" for="effectiveFromDate">Effective from</label>
+              <input type="date" class="form-control" id="effectiveFromDate" required>
+              <div class="form-text">When you'd like this to take effect -- the Admin uses this as guidance for when to review it.</div>
+            </div>
+            <div class="mb-2">
+              <label class="form-label" for="sizeChangeReason">Reason <span class="ck-muted fw-normal">(optional)</span></label>
+              <textarea class="form-control" id="sizeChangeReason" rows="2" maxlength="500"></textarea>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-primary" id="saveSizeBtn"><i class="bi bi-send me-1"></i>Submit Request</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Request address change modal -->
+  <div class="modal fade" id="addressChangeModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title"><i class="bi bi-house-gear me-2"></i>Request Address Change</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div id="addressChangeAlert" class="alert alert-danger d-none"></div>
+          <p class="ck-muted small">An Admin reviews these before anything changes -- you'll see a note here once it's decided.</p>
+          <form id="addressChangeForm" novalidate>
+            <div class="mb-3">
+              <label class="form-label" for="acNewAddress">New address</label>
+              <textarea class="form-control" id="acNewAddress" rows="2" maxlength="500" required></textarea>
+              <div class="invalid-feedback">Please enter the new address.</div>
+            </div>
+            <div class="mb-3">
+              <label class="form-label" for="acNewAreaId">New Area / Tower <span class="ck-muted fw-normal">(optional)</span></label>
+              <select class="form-select" id="acNewAreaId"></select>
+            </div>
+            <div class="mb-3">
+              <label class="form-label" for="acEffectiveDate">Effective from</label>
+              <input type="date" class="form-control" id="acEffectiveDate" required>
+              <div class="form-text">When you'd like this to take effect -- the Admin uses this as guidance for when to review it.</div>
+            </div>
+            <div class="mb-2">
+              <label class="form-label" for="acReason">Reason <span class="ck-muted fw-normal">(optional)</span></label>
+              <textarea class="form-control" id="acReason" rows="2" maxlength="500"></textarea>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-primary" id="saveAddressChangeBtn"><i class="bi bi-send me-1"></i>Submit Request</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer class="ck-footer text-center">
+    <div class="container"><a href="https://www.thedawoodibohras.com/faiz-al-mawaid-al-burhaniyah/" target="_blank" rel="noopener" class="ck-footer-link">Faiz al-Mawaid al-Burhaniyah</a> Community Kitchen</div>
+  </footer>
+
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="../js/site.js?v=20260927b"></script>
+  <script>
+    $(function () {
+      var session = CK.session.requireFamily();
+      if (!session) { return; }
+      CK.nav.render("family", "dashboard");
+
+      var thaaliSizesById = {};
+      var areasById = {};
+      var currentFamily = null;
+      var activeCancelledDates = {}; // isoDate -> true, built from Active cancellations
+
+      function statusBadgeClass(status) {
+        return "badge badge-status-" + status.toLowerCase();
+      }
+
+      function loadThaaliSizes(done) {
+        CK.api.get("/api/thaalisizes").done(function (sizes) {
+          thaaliSizesById = {};
+          $.each(sizes || [], function (i, s) { thaaliSizesById[s.id] = s; });
+          done();
+        }).fail(function () { done(); });
+      }
+
+      function loadAreas(done) {
+        CK.api.get("/api/areas").done(function (areas) {
+          areasById = {};
+          $.each(areas || [], function (i, a) { areasById[a.id] = a; });
+          done();
+        }).fail(function () { done(); });
+      }
+
+      function renderFamily(family) {
+        currentFamily = family;
+        $("#fFullName").text(session.fullName || "—");
+        $("#fSabilNumber").text(session.sabilNumber || "—");
+        $("#fEmail").text(session.email || "—");
+        $("#fPhone").text(session.phone || "—");
+        $("#fAddress").text(family.address || "—");
+        var area = family.areaId ? areasById[family.areaId] : null;
+        $("#fArea").text(area ? area.name : (family.areaId ? ("Area #" + family.areaId) : "Pickup from kitchen"));
+        $("#fMembers").text(family.numberOfMembers || "—");
+        $("#fStatus").html('<span class="' + statusBadgeClass(family.registrationStatus) + '">' + family.registrationStatus + '</span>' + (family.isActive ? '' : ' <span class="badge badge-status-inactive ms-1">Inactive</span>'));
+        $("#fSince").text(CK.fmt.dateShort(family.createdAt));
+        var size = thaaliSizesById[family.thaaliSizeId];
+        $("#fThaaliSize").text(size ? size.name : ("Size #" + family.thaaliSizeId));
+
+        var canAct = family.registrationStatus === "Approved" && family.isActive;
+
+        if (family.registrationStatus === "Pending") {
+          $("#pendingContent").show();
+          $("#pageContent").hide();
+          return;
+        }
+
+        $("#pendingContent").hide();
+        $("#pageContent").show();
+
+        if (family.registrationStatus === "Rejected") {
+          $("#statusBanner").html('<div class="alert alert-danger"><i class="bi bi-x-circle-fill me-2"></i>Your registration was not approved. Please contact the Kitchen Admin for details.</div>');
+        } else if (!family.isActive) {
+          $("#statusBanner").html('<div class="alert alert-warning"><i class="bi bi-exclamation-triangle-fill me-2"></i>Your family account is currently inactive. Please contact the Kitchen Admin.</div>');
+        } else {
+          $("#statusBanner").html("");
+        }
+
+        $("#requestSizeChangeBtn, #cancelSubmitBtn, #feedbackSubmitBtn").prop("disabled", !canAct);
+        if (!canAct) {
+          $("#cancelForm :input, #feedbackForm :input").prop("disabled", true);
+        }
+      }
+
+      function renderMeals(meals) {
+        $("#mealsLoading").hide();
+        var $list = $("#mealsList").empty();
+        if (!meals || meals.length === 0) {
+          $("#mealsEmpty").removeClass("d-none");
+          return;
+        }
+        $("#mealsEmpty").addClass("d-none");
+        meals.sort(function (a, b) { return a.mealDate < b.mealDate ? -1 : 1; });
+        $.each(meals, function (i, m) {
+          var isCancelled = !!activeCancelledDates[m.mealDate];
+          var card =
+            '<div class="col-md-6">' +
+              '<div class="ck-meal-card">' +
+                '<div class="d-flex justify-content-between align-items-start">' +
+                  '<div class="ck-meal-date">' + CK.fmt.date(m.mealDate) + '</div>' +
+                  (isCancelled ? '<span class="badge badge-status-rejected">Cancelled by you</span>' : '') +
+                '</div>' +
+                '<div class="ck-meal-desc mt-2">' + CK.esc(m.mealDescription) + '</div>' +
+              '</div>' +
+            '</div>';
+          $list.append(card);
+        });
+      }
+
+      /**
+       * Small top-right notice, shown only when at least one usual serving weekday
+       * (Mon-Sat) in the next 14 days (this week + next week) is a declared
+       * NonServingDay -- i.e. a meal that would normally come isn't, and it isn't
+       * just the regular Sunday closure.
+       */
+      /**
+       * Shows a small card naming the Delivery Person assigned to this family's Area
+       * (and their mobile number), or clears the box if the family has no Area set or
+       * no active Delivery Person is assigned to it yet.
+       */
+      function loadDeliveryPerson(family) {
+        if (!family.areaId) {
+          $("#deliveryPersonBox").empty();
+          return;
+        }
+        CK.api.get("/api/deliverypersons/by-area/" + family.areaId).done(function (persons) {
+          if (!persons || persons.length === 0) {
+            $("#deliveryPersonBox").empty();
+            return;
+          }
+          var p = persons[0];
+          $("#deliveryPersonBox").html(
+            '<div class="card border-primary">' +
+              '<div class="card-body p-3">' +
+                '<div class="d-flex align-items-center gap-2 mb-1">' +
+                  '<i class="bi bi-bicycle text-primary"></i>' +
+                  '<strong class="small">Your Delivery Person</strong>' +
+                '</div>' +
+                '<div class="small">' + CK.esc(p.fullName) + ' &middot; <a href="tel:' + CK.esc(p.mobileNumber) + '">' + CK.esc(p.mobileNumber) + '</a></div>' +
+              '</div>' +
+            '</div>'
+          );
+        }).fail(function () { $("#deliveryPersonBox").empty(); });
+      }
+
+      /**
+       * Shows whether there's a Pending address-change request, renders the family's
+       * own request history, and -- the one-time flash the family should see once,
+       * per request #5 -- surfaces any Approved/Rejected request they haven't been
+       * shown yet, then marks it seen so it never flashes again.
+       */
+      function loadAddressChangeRequests(family) {
+        CK.api.get("/api/addresschangerequests/family/" + session.familyId).done(function (items) {
+          items = items || [];
+          items.sort(function (a, b) { return a.createdAt < b.createdAt ? 1 : -1; });
+
+          var pending = items.filter(function (r) { return r.status === "Pending"; })[0];
+          $("#addressChangeStatus").html(pending
+            ? ('<span class="ck-muted">Pending request &mdash; wants effective ' + CK.fmt.dateShort(pending.effectiveDate) + '</span>')
+            : '&nbsp;');
+          $("#requestAddressChangeBtn").prop("disabled", !!pending);
+
+          var $box = $("#addressHistoryBox").empty();
+          if (items.length === 0) {
+            $box.html('<p class="ck-muted mb-0">No requests yet.</p>');
+          } else {
+            var html = '<ul class="list-unstyled mb-0">';
+            $.each(items, function (i, r) {
+              var areaLabel = r.newAreaId ? (areasById[r.newAreaId] ? areasById[r.newAreaId].name : ("Area #" + r.newAreaId)) : "Pickup from kitchen";
+              html += '<li class="mb-2"><strong>' + CK.esc(r.newAddress) + '</strong> <span class="ck-muted">(' + CK.esc(areaLabel) + ', wanted ' + CK.fmt.dateShort(r.effectiveDate) + ')</span> ' + addressChangeStatusBadge(r.status) +
+                (r.status !== "Pending" && r.adminNote ? ('<br><span class="ck-muted small">' + CK.esc(r.adminNote) + '</span>') : '') +
+                '</li>';
+            });
+            html += '</ul>';
+            $box.html(html);
+          }
+
+          var unseen = items.filter(function (r) { return r.status !== "Pending" && !r.familyNotifiedAt; });
+          $.each(unseen, function (i, r) {
+            if (r.status === "Approved") {
+              CK.toast("Your address change to \"" + r.newAddress + "\" was approved.", "success");
+            } else {
+              CK.toast("Your address change request was not approved." + (r.adminNote ? (" " + r.adminNote) : ""), "danger");
+            }
+            CK.api.post("/api/addresschangerequests/" + r.id + "/mark-notified", {});
+          });
+        }).fail(function () { /* best-effort -- leave the section as-is if this fails */ });
+      }
+
+      function addressChangeStatusBadge(status) {
+        if (status === "Pending") { return '<span class="badge badge-status-pending">Waiting</span>'; }
+        if (status === "Approved") { return '<span class="badge badge-status-approved">Approved</span>'; }
+        return '<span class="badge badge-status-rejected">Rejected</span>';
+      }
+
+      /**
+       * Same "one-time flash" pattern as loadAddressChangeRequests above, for Thaali
+       * size change requests: shows whether there's a Pending request, renders the
+       * family's own request history, and surfaces any Approved/Rejected request they
+       * haven't been shown yet as a toast, then marks it seen.
+       */
+      function loadThaaliSizeChangeRequests(family) {
+        CK.api.get("/api/thaalisizechangerequests/family/" + session.familyId).done(function (items) {
+          items = items || [];
+          items.sort(function (a, b) { return a.createdAt < b.createdAt ? 1 : -1; });
+
+          var pending = items.filter(function (r) { return r.status === "Pending"; })[0];
+          $("#sizeChangeStatus").html(pending
+            ? ('<span class="ck-muted">Pending request &mdash; wants effective ' + CK.fmt.dateShort(pending.effectiveFromDate) + '</span>')
+            : '&nbsp;');
+          $("#requestSizeChangeBtn").prop("disabled", !!pending);
+
+          var $box = $("#sizeRequestHistoryBox").empty();
+          if (items.length === 0) {
+            $box.html('<p class="ck-muted mb-0">No requests yet.</p>');
+          } else {
+            var html = '<ul class="list-unstyled mb-0">';
+            $.each(items, function (i, r) {
+              var size = thaaliSizesById[r.newThaaliSizeId];
+              html += '<li class="mb-2"><strong>' + CK.esc(size ? size.name : ("Size #" + r.newThaaliSizeId)) + '</strong> <span class="ck-muted">(wanted ' + CK.fmt.dateShort(r.effectiveFromDate) + ')</span> ' + thaaliSizeChangeStatusBadge(r.status) +
+                (r.status !== "Pending" && r.adminNote ? ('<br><span class="ck-muted small">' + CK.esc(r.adminNote) + '</span>') : '') +
+                '</li>';
+            });
+            html += '</ul>';
+            $box.html(html);
+          }
+
+          var unseen = items.filter(function (r) { return r.status !== "Pending" && !r.familyNotifiedAt; });
+          $.each(unseen, function (i, r) {
+            var size = thaaliSizesById[r.newThaaliSizeId];
+            var sizeName = size ? size.name : ("Size #" + r.newThaaliSizeId);
+            if (r.status === "Approved") {
+              CK.toast("Your thaali size change to \"" + sizeName + "\" was approved.", "success");
+            } else {
+              CK.toast("Your thaali size change request was not approved." + (r.adminNote ? (" " + r.adminNote) : ""), "danger");
+            }
+            CK.api.post("/api/thaalisizechangerequests/" + r.id + "/mark-notified", {});
+          });
+        }).fail(function () { /* best-effort -- leave the section as-is if this fails */ });
+      }
+
+      function thaaliSizeChangeStatusBadge(status) {
+        if (status === "Pending") { return '<span class="badge badge-status-pending">Waiting</span>'; }
+        if (status === "Approved") { return '<span class="badge badge-status-approved">Approved</span>'; }
+        return '<span class="badge badge-status-rejected">Rejected</span>';
+      }
+
+      function loadClosureNotice() {
+        var today = new Date();
+        today.setHours(0, 0, 0, 0);
+        var windowEnd = new Date(today);
+        windowEnd.setDate(windowEnd.getDate() + 13);
+
+        CK.api.get("/api/nonservingdays").done(function (days) {
+          var upcoming = [];
+          $.each(days || [], function (i, d) {
+            var parts = d.theDate.split("-");
+            var dt = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+            if (dt >= today && dt <= windowEnd && dt.getDay() !== 0) {
+              upcoming.push(d);
+            }
+          });
+          if (upcoming.length === 0) {
+            $("#closureNoticeBox").empty();
+            return;
+          }
+          upcoming.sort(function (a, b) { return a.theDate < b.theDate ? -1 : 1; });
+          var items = "";
+          $.each(upcoming, function (i, d) {
+            items += '<li>' + CK.fmt.dateShort(d.theDate) + (d.reason ? ' &mdash; ' + CK.esc(d.reason) : '') + '</li>';
+          });
+          $("#closureNoticeBox").html(
+            '<div class="card border-warning">' +
+              '<div class="card-body p-3">' +
+                '<div class="d-flex align-items-center gap-2 mb-1">' +
+                  '<i class="bi bi-exclamation-triangle-fill text-warning"></i>' +
+                  '<strong class="small">No Meal These Days</strong>' +
+                '</div>' +
+                '<ul class="small mb-0 ps-3">' + items + '</ul>' +
+              '</div>' +
+            '</div>'
+          );
+        }).fail(function () { $("#closureNoticeBox").empty(); });
+      }
+
+      function renderCancellations(cancellations) {
+        var $body = $("#cancellationsBody").empty();
+        activeCancelledDates = {};
+
+        if (!cancellations || cancellations.length === 0) {
+          $("#cancellationsEmpty").removeClass("d-none");
+          return;
+        }
+        $("#cancellationsEmpty").addClass("d-none");
+
+        cancellations.sort(function (a, b) { return a.createdAt < b.createdAt ? 1 : -1; });
+        $.each(cancellations, function (i, c) {
+          if (c.status === "Active") {
+            var d = c.startDate;
+            while (d <= c.endDate) { activeCancelledDates[d] = true; d = CK.addDays(d, 1); }
+          }
+          var dates = c.startDate === c.endDate ? CK.fmt.dateShort(c.startDate) : (CK.fmt.dateShort(c.startDate) + " &ndash; " + CK.fmt.dateShort(c.endDate));
+          var row =
+            '<tr>' +
+              '<td>' + dates + '</td>' +
+              '<td>' + (c.reason ? CK.esc(c.reason) : '<span class="ck-muted">&mdash;</span>') + '</td>' +
+              '<td><span class="' + statusBadgeClass(c.status) + '">' + c.status + '</span></td>' +
+              '<td class="text-end">' + (c.status === "Active" ? '<button class="btn btn-sm btn-outline-primary reinstate-btn" data-id="' + c.id + '"><i class="bi bi-arrow-counterclockwise me-1"></i>Reinstate</button>' : '') + '</td>' +
+            '</tr>';
+          $body.append(row);
+        });
+      }
+
+      function feedbackStatusBadge(status) {
+        return status === "Open"
+          ? '<span class="badge badge-status-pending">Waiting for a response</span>'
+          : '<span class="badge badge-status-approved">Responded</span>';
+      }
+
+      function renderFeedback(items) {
+        $("#feedbackListLoading").hide();
+        var $list = $("#feedbackList").empty();
+        if (!items || items.length === 0) {
+          $("#feedbackEmpty").removeClass("d-none");
+          return;
+        }
+        $("#feedbackEmpty").addClass("d-none");
+        items.sort(function (a, b) { return a.createdAt < b.createdAt ? 1 : -1; });
+        $.each(items, function (i, fb) {
+          var card =
+            '<div class="card">' +
+              '<div class="card-body p-3">' +
+                '<div class="d-flex justify-content-between align-items-start gap-2">' +
+                  '<div class="ck-muted small">' + CK.fmt.dateTime(fb.createdAt) + '</div>' +
+                  feedbackStatusBadge(fb.status) +
+                '</div>' +
+                '<p class="mb-0 mt-1">' + CK.esc(fb.message) + '</p>' +
+                (fb.status === "Responded"
+                  ? ('<hr class="my-2"><div class="ck-muted small mb-1"><i class="bi bi-reply-fill me-1"></i>Admin response</div><p class="mb-0">' + CK.esc(fb.responseText) + '</p>')
+                  : '') +
+              '</div>' +
+            '</div>';
+          $list.append(card);
+        });
+      }
+
+      function loadFeedback() {
+        $("#feedbackListLoading").show();
+        $("#feedbackEmpty").addClass("d-none");
+        CK.api.get("/api/feedback/family/" + session.familyId).done(renderFeedback).fail(function () {
+          $("#feedbackListLoading").hide();
+          $("#feedbackEmpty").removeClass("d-none");
+        });
+      }
+
+      function renderSizeHistory(rows) {
+        var $box = $("#sizeHistoryBox").empty();
+        if (!rows || rows.length === 0) {
+          $box.html('<p class="ck-muted mb-0">No history yet.</p>');
+          return;
+        }
+        rows.sort(function (a, b) { return a.effectiveFromDate < b.effectiveFromDate ? 1 : -1; });
+        var html = '<ul class="list-unstyled mb-0">';
+        $.each(rows, function (i, r) {
+          var size = thaaliSizesById[r.thaaliSizeId];
+          var range = CK.fmt.dateShort(r.effectiveFromDate) + " &rarr; " + (r.effectiveToDate ? CK.fmt.dateShort(r.effectiveToDate) : "Current");
+          html += '<li class="mb-1"><strong>' + CK.esc(size ? size.name : ("Size #" + r.thaaliSizeId)) + '</strong> <span class="ck-muted">(' + range + ')</span></li>';
+        });
+        html += '</ul>';
+        $box.html(html);
+      }
+
+      function loadAll() {
+        loadThaaliSizes(function () {
+          loadAreas(function () {
+          CK.api.get("/api/families/" + session.familyId).done(function (family) {
+            renderFamily(family);
+
+            if (family.registrationStatus !== "Approved") { return; }
+
+            loadClosureNotice();
+            loadDeliveryPerson(family);
+            loadAddressChangeRequests(family);
+            loadThaaliSizeChangeRequests(family);
+            loadFeedback();
+
+            CK.api.get("/api/mealplans/upcoming").done(renderMeals).fail(function () {
+              $("#mealsLoading").hide();
+              $("#mealsEmpty").removeClass("d-none");
+            });
+
+            CK.api.get("/api/thaalicancellations/family/" + session.familyId).done(function (cancellations) {
+              renderCancellations(cancellations);
+              // Re-render meals afterwards so the "cancelled by you" ribbon reflects latest data.
+              CK.api.get("/api/mealplans/upcoming").done(renderMeals);
+            });
+
+            CK.api.get("/api/families/" + session.familyId + "/size-history").done(renderSizeHistory);
+          }).fail(function (xhr) {
+            if (xhr && (xhr.status === 404 || xhr.status === 401)) {
+              // The cached session points at a family that no longer exists (or a token
+              // that's no longer valid) -- clear it and send them back to a real login
+              // instead of leaving them stuck on a blank/broken dashboard.
+              CK.session.clearFamily();
+              window.location.replace(CK.rootPath() + "family/login.html?expired=1");
+              return;
+            }
+            CK.toast(CK.api.errorMessage(xhr, "Could not load your family details."), "danger");
+          });
+          });
+        });
+      }
+
+      // Cancel thaali form
+      var todayIso = CK.today();
+      $("#cStartDate, #cEndDate").attr("min", todayIso).val(todayIso);
+
+      $("#cStartDate").on("change", function () {
+        var v = $(this).val();
+        $("#cEndDate").attr("min", v);
+        if ($("#cEndDate").val() < v) { $("#cEndDate").val(v); }
+      });
+
+      $("#cancelForm").on("submit", function (e) {
+        e.preventDefault();
+        $("#cancelAlert").addClass("d-none");
+        var form = this;
+        if (!form.checkValidity()) { $(form).addClass("was-validated"); return; }
+
+        var payload = {
+          familyId: session.familyId,
+          startDate: $("#cStartDate").val(),
+          endDate: $("#cEndDate").val(),
+          reason: $("#cReason").val().trim() || null,
+          createdByUserId: session.userId
+        };
+        var $btn = $("#cancelSubmitBtn").prop("disabled", true).html('<span class="spinner-border spinner-border-sm me-1"></span>Saving&hellip;');
+
+        CK.api.post("/api/thaalicancellations", payload).done(function () {
+          CK.toast("Thaali cancelled for the selected dates.", "success");
+          $("#cancelForm")[0].reset();
+          $("#cStartDate, #cEndDate").val(todayIso);
+          $btn.prop("disabled", false).html('<i class="bi bi-x-circle me-1"></i>Cancel This Thaali</i>');
+          loadAll();
+        }).fail(function (xhr) {
+          $("#cancelAlert").text(CK.api.errorMessage(xhr, "Could not cancel this thaali.")).removeClass("d-none");
+          $btn.prop("disabled", false).html('<i class="bi bi-x-circle me-1"></i>Cancel This Thaali');
+        });
+      });
+
+      $(document).on("click", ".reinstate-btn", function () {
+        var id = $(this).data("id");
+        var $btn = $(this).prop("disabled", true).html('<span class="spinner-border spinner-border-sm"></span>');
+        CK.api.put("/api/thaalicancellations/" + id + "/reinstate", { reinstatedByUserId: session.userId }).done(function () {
+          CK.toast("Cancellation reinstated.", "success");
+          loadAll();
+        }).fail(function (xhr) {
+          CK.toast(CK.api.errorMessage(xhr, "Could not reinstate this cancellation."), "danger");
+          $btn.prop("disabled", false).text("Reinstate");
+        });
+      });
+
+      // Feedback form
+      $("#feedbackMessage").on("input", function () {
+        $("#feedbackCharCount").text($(this).val().length);
+      });
+
+      $("#feedbackForm").on("submit", function (e) {
+        e.preventDefault();
+        $("#feedbackAlert").addClass("d-none");
+        var message = $("#feedbackMessage").val().trim();
+        if (!message) {
+          $("#feedbackAlert").text("Please enter a message.").removeClass("d-none");
+          return;
+        }
+
+        var payload = { familyId: session.familyId, createdByUserId: session.userId, message: message };
+        var $btn = $("#feedbackSubmitBtn").prop("disabled", true).html('<span class="spinner-border spinner-border-sm me-1"></span>Sending&hellip;');
+
+        CK.api.post("/api/feedback", payload).done(function () {
+          CK.toast("Feedback sent.", "success");
+          $("#feedbackForm")[0].reset();
+          $("#feedbackCharCount").text("0");
+          loadFeedback();
+        }).fail(function (xhr) {
+          $("#feedbackAlert").text(CK.api.errorMessage(xhr, "Could not send your feedback.")).removeClass("d-none");
+        }).always(function () {
+          $btn.prop("disabled", false).html('<i class="bi bi-send me-1"></i>Send Feedback');
+        });
+      });
+
+      // Change size modal
+      $("#changeSizeModal").on("show.bs.modal", function () {
+        $("#sizeAlert").addClass("d-none");
+        var $select = $("#newSizeId").empty();
+        $.each(thaaliSizesById, function (id, s) {
+          $select.append('<option value="' + s.id + '"' + (currentFamily && currentFamily.thaaliSizeId === s.id ? " selected" : "") + '>' + CK.esc(s.name) + '</option>');
+        });
+        $("#effectiveFromDate").attr("min", CK.today()).val(CK.today());
+        $("#sizeChangeReason").val("");
+      });
+
+      $("#addressChangeModal").on("show.bs.modal", function () {
+        $("#addressChangeAlert").addClass("d-none");
+        $(document.getElementById("addressChangeForm")).removeClass("was-validated");
+        $("#acNewAddress").val(currentFamily ? (currentFamily.address || "") : "");
+        var $areaSelect = $("#acNewAreaId").empty();
+        $areaSelect.append('<option value="">Pickup from kitchen</option>');
+        $.each(areasById, function (id, a) {
+          $areaSelect.append('<option value="' + a.id + '"' + (currentFamily && currentFamily.areaId === a.id ? " selected" : "") + '>' + CK.esc(a.name) + '</option>');
+        });
+        $("#acEffectiveDate").attr("min", CK.today()).val(CK.today());
+        $("#acReason").val("");
+      });
+
+      $("#saveAddressChangeBtn").on("click", function () {
+        $("#addressChangeAlert").addClass("d-none");
+        var form = document.getElementById("addressChangeForm");
+        if (!form.checkValidity()) { $(form).addClass("was-validated"); return; }
+
+        var areaVal = $("#acNewAreaId").val();
+        var payload = {
+          familyId: session.familyId,
+          createdByUserId: session.userId,
+          newAddress: $("#acNewAddress").val().trim(),
+          newAreaId: areaVal ? parseInt(areaVal, 10) : null,
+          effectiveDate: $("#acEffectiveDate").val(),
+          reason: $("#acReason").val().trim() || null
+        };
+        var $btn = $(this).prop("disabled", true).html('<span class="spinner-border spinner-border-sm me-1"></span>Submitting&hellip;');
+
+        CK.api.post("/api/addresschangerequests", payload).done(function () {
+          $("#addressChangeModal").modal("hide");
+          CK.toast("Address change request submitted.", "success");
+          loadAddressChangeRequests(currentFamily);
+        }).fail(function (xhr) {
+          $("#addressChangeAlert").text(CK.api.errorMessage(xhr, "Could not submit this request.")).removeClass("d-none");
+        }).always(function () {
+          $btn.prop("disabled", false).html('<i class="bi bi-send me-1"></i>Submit Request');
+        });
+      });
+
+      $("#saveSizeBtn").on("click", function () {
+        $("#sizeAlert").addClass("d-none");
+        var form = document.getElementById("changeSizeForm");
+        if (!form.checkValidity()) { $(form).addClass("was-validated"); return; }
+
+        var payload = {
+          familyId: session.familyId,
+          createdByUserId: session.userId,
+          newThaaliSizeId: parseInt($("#newSizeId").val(), 10),
+          effectiveFromDate: $("#effectiveFromDate").val(),
+          reason: $("#sizeChangeReason").val().trim() || null
+        };
+        var $btn = $(this).prop("disabled", true).html('<span class="spinner-border spinner-border-sm me-1"></span>Submitting&hellip;');
+
+        CK.api.post("/api/thaalisizechangerequests", payload).done(function () {
+          $("#changeSizeModal").modal("hide");
+          CK.toast("Thaali size change request submitted.", "success");
+          loadThaaliSizeChangeRequests(currentFamily);
+        }).fail(function (xhr) {
+          $("#sizeAlert").text(CK.api.errorMessage(xhr, "Could not submit this request.")).removeClass("d-none");
+        }).always(function () {
+          $btn.prop("disabled", false).html('<i class="bi bi-send me-1"></i>Submit Request');
+        });
+      });
+
+      loadAll();
+    });
+  </script>
+</body>
+</html>

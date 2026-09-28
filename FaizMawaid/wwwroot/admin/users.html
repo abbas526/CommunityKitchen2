@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+  <title>Users - Faiz al-Mawaid al-Burhaniyah Admin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+  <link href="../css/site.css?v=20260927b" rel="stylesheet">
+</head>
+<body>
+  <div id="ckNavbar"></div>
+
+  <main class="container my-4" style="max-width:960px;">
+    <div class="ck-page-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+      <div>
+        <h1 class="mb-1"><i class="bi bi-people-fill me-2"></i>Users</h1>
+        <p class="ck-muted mb-0">Every Admin and Family Head login account. Reset a password here if someone is locked out.</p>
+      </div>
+      <div class="d-flex flex-wrap gap-2">
+        <div class="btn-group">
+          <button type="button" class="btn btn-outline-primary" id="filterAllBtn">All</button>
+          <button type="button" class="btn btn-outline-primary" id="filterAdminBtn">Admins</button>
+          <button type="button" class="btn btn-outline-primary" id="filterFamilyBtn">Family Heads</button>
+        </div>
+        <button type="button" class="btn btn-primary" id="addUserBtn"><i class="bi bi-person-plus me-1"></i>Add User</button>
+      </div>
+    </div>
+
+    <div id="loadingBox" class="ck-loading"><div class="spinner-border text-primary"></div></div>
+    <div id="emptyBox" class="ck-empty-state d-none">
+      <i class="bi bi-people"></i>
+      No users found.
+    </div>
+
+    <div class="table-responsive d-none" id="tableWrap">
+      <table class="table align-middle bg-white">
+        <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Password</th><th></th></tr></thead>
+        <tbody id="usersBody"></tbody>
+      </table>
+    </div>
+  </main>
+
+  <div class="modal fade" id="addUserModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title"><i class="bi bi-person-plus-fill me-2"></i>Add User</h5>
+          <button class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div id="addUserAlert" class="alert alert-danger d-none"></div>
+          <form id="addUserForm" novalidate>
+            <div class="mb-3">
+              <label class="form-label" for="addUserRole">Role</label>
+              <select class="form-select" id="addUserRole" required>
+                <option value="1">Admin</option>
+                <option value="2">Family Head</option>
+              </select>
+              <div id="addUserFamilyHeadNote" class="form-text d-none">
+                This creates a login account only -- it won't set up a family or thaali
+                size. For a new family, use "Pending Registrations" instead (either the
+                family registers themselves, or you register them and approve it).
+              </div>
+            </div>
+            <div class="mb-3">
+              <label class="form-label" for="addUserFullName">Full name</label>
+              <input type="text" class="form-control" id="addUserFullName" required maxlength="255">
+              <div class="invalid-feedback">Please enter a full name.</div>
+            </div>
+            <div class="mb-3">
+              <label class="form-label" for="addUserEmail">Email</label>
+              <input type="email" class="form-control" id="addUserEmail" required maxlength="255">
+              <div class="invalid-feedback">Please enter a valid email address.</div>
+            </div>
+            <div class="mb-3">
+              <label class="form-label" for="addUserPhone">Phone <span class="ck-muted fw-normal">(optional)</span></label>
+              <input type="tel" class="form-control" id="addUserPhone" maxlength="30">
+            </div>
+            <div class="mb-3" id="addUserSabilWrap">
+              <label class="form-label" for="addUserSabil">Sabil Number <span class="ck-muted fw-normal">(optional here)</span></label>
+              <input type="text" class="form-control" id="addUserSabil" maxlength="50">
+            </div>
+            <div class="mb-3">
+              <label class="form-label" for="addUserPassword">Initial password</label>
+              <input type="password" class="form-control" id="addUserPassword" required minlength="8" maxlength="255" placeholder="At least 8 characters">
+              <div class="form-text">They'll be asked to choose their own password the first time they sign in.</div>
+              <div class="invalid-feedback">Please enter a password of at least 8 characters.</div>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button class="btn btn-primary" id="saveAddUserBtn"><i class="bi bi-check2 me-1"></i>Create User</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="resetPwModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title"><i class="bi bi-key-fill me-2"></i>Reset Password</h5>
+          <button class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div id="resetPwAlert" class="alert alert-danger d-none"></div>
+          <p class="ck-muted">Setting a new password for <strong id="resetPwUserName"></strong>. They'll be asked to choose their own password the next time they sign in.</p>
+          <form id="resetPwForm" novalidate>
+            <input type="hidden" id="resetPwUserId">
+            <div class="mb-3">
+              <label class="form-label" for="resetPwNew">New password</label>
+              <input type="password" class="form-control" id="resetPwNew" required minlength="8" maxlength="255" placeholder="At least 8 characters">
+              <div class="invalid-feedback">Please enter a password of at least 8 characters.</div>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button class="btn btn-primary" id="saveResetPwBtn"><i class="bi bi-check2 me-1"></i>Set Password</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer class="ck-footer text-center"><div class="container"><a href="https://www.thedawoodibohras.com/faiz-al-mawaid-al-burhaniyah/" target="_blank" rel="noopener" class="ck-footer-link">Faiz al-Mawaid al-Burhaniyah</a> Community Kitchen</div></footer>
+
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="../js/site.js?v=20260927b"></script>
+  <script>
+    $(function () {
+      var session = CK.session.requireAdmin();
+      if (!session) { return; }
+      CK.nav.render("admin", "families");
+
+      var currentFilter = null; // null = all, 1 = Admin, 2 = FamilyHead
+
+      function setFilterButtons() {
+        $("#filterAllBtn").toggleClass("active", currentFilter === null);
+        $("#filterAdminBtn").toggleClass("active", currentFilter === 1);
+        $("#filterFamilyBtn").toggleClass("active", currentFilter === 2);
+      }
+
+      function roleLabel(roleId) {
+        return roleId === 1 ? "Admin" : "Family Head";
+      }
+
+      function load() {
+        setFilterButtons();
+        $("#loadingBox").show();
+        $("#tableWrap").addClass("d-none");
+        $("#emptyBox").addClass("d-none");
+
+        var url = "/api/users" + (currentFilter ? "?roleId=" + currentFilter : "");
+        CK.api.get(url).done(function (users) {
+          $("#loadingBox").hide();
+          var $body = $("#usersBody").empty();
+          if (!users || users.length === 0) {
+            $("#emptyBox").removeClass("d-none");
+            return;
+          }
+          $("#tableWrap").removeClass("d-none");
+          users.sort(function (a, b) { return (a.fullName || "").localeCompare(b.fullName || ""); });
+          $.each(users, function (i, u) {
+            var statusBadge = u.isActive
+              ? '<span class="badge text-bg-success">Active</span>'
+              : '<span class="badge text-bg-secondary">Deactivated</span>';
+            var pwBadge = u.mustChangePassword
+              ? '<span class="badge text-bg-warning text-dark">Admin-set</span>'
+              : '<span class="badge text-bg-light text-muted border">Self-chosen</span>';
+            var toggleBtn = u.isActive
+              ? '<button class="btn btn-sm btn-outline-secondary toggle-active-btn me-1" data-id="' + u.id + '" data-active="1"><i class="bi bi-slash-circle me-1"></i>Deactivate</button>'
+              : '<button class="btn btn-sm btn-outline-success toggle-active-btn me-1" data-id="' + u.id + '" data-active="0"><i class="bi bi-check-circle me-1"></i>Activate</button>';
+
+            $body.append(
+              '<tr>' +
+                '<td class="fw-semibold">' + CK.esc(u.fullName) + '</td>' +
+                '<td>' + CK.esc(u.email) + '</td>' +
+                '<td>' + roleLabel(u.roleId) + '</td>' +
+                '<td>' + statusBadge + '</td>' +
+                '<td>' + pwBadge + '</td>' +
+                '<td class="text-end text-nowrap">' +
+                  toggleBtn +
+                  '<button class="btn btn-sm btn-outline-primary reset-pw-btn" data-id="' + u.id + '" data-name="' + CK.esc(u.fullName) + '"><i class="bi bi-key me-1"></i>Reset Password</button>' +
+                '</td>' +
+              '</tr>'
+            );
+          });
+        }).fail(function (xhr) {
+          $("#loadingBox").hide();
+          CK.toast(CK.api.errorMessage(xhr, "Could not load users."), "danger");
+        });
+      }
+
+      $("#addUserRole").on("change", function () {
+        $("#addUserFamilyHeadNote").toggleClass("d-none", $(this).val() !== "2");
+      });
+
+      $("#addUserBtn").on("click", function () {
+        $("#addUserAlert").addClass("d-none");
+        $(document.getElementById("addUserForm")).removeClass("was-validated");
+        document.getElementById("addUserForm").reset();
+        $("#addUserRole").val("1");
+        $("#addUserFamilyHeadNote").addClass("d-none");
+        new bootstrap.Modal(document.getElementById("addUserModal")).show();
+      });
+
+      $("#saveAddUserBtn").on("click", function () {
+        var form = document.getElementById("addUserForm");
+        if (!form.checkValidity()) { $(form).addClass("was-validated"); return; }
+
+        var payload = {
+          roleId: parseInt($("#addUserRole").val(), 10),
+          fullName: $("#addUserFullName").val().trim(),
+          email: $("#addUserEmail").val().trim(),
+          phone: $("#addUserPhone").val().trim() || null,
+          sabilNumber: $("#addUserSabil").val().trim() || null,
+          password: $("#addUserPassword").val()
+        };
+        var $btn = $(this).prop("disabled", true).html('<span class="spinner-border spinner-border-sm"></span>');
+
+        CK.api.post("/api/users", payload).done(function () {
+          $("#addUserModal").modal("hide");
+          CK.toast("User created. They'll be asked to choose their own password at first login.", "success");
+          load();
+        }).fail(function (xhr) {
+          $("#addUserAlert").text(CK.api.errorMessage(xhr, "Could not create this user.")).removeClass("d-none");
+        }).always(function () { $btn.prop("disabled", false).html('<i class="bi bi-check2 me-1"></i>Create User'); });
+      });
+
+      $("#filterAllBtn").on("click", function () { currentFilter = null; load(); });
+      $("#filterAdminBtn").on("click", function () { currentFilter = 1; load(); });
+      $("#filterFamilyBtn").on("click", function () { currentFilter = 2; load(); });
+
+      $(document).on("click", ".toggle-active-btn", function () {
+        var id = $(this).data("id");
+        var wasActive = $(this).data("active") === 1;
+        var action = wasActive ? "deactivate" : "activate";
+        var $btn = $(this).prop("disabled", true);
+        CK.api.put("/api/users/" + id + "/" + action, {}).done(function () {
+          CK.toast(wasActive ? "User deactivated." : "User activated.", "success");
+          load();
+        }).fail(function (xhr) {
+          CK.toast(CK.api.errorMessage(xhr, "Could not update this user."), "danger");
+          $btn.prop("disabled", false);
+        });
+      });
+
+      $(document).on("click", ".reset-pw-btn", function () {
+        $("#resetPwAlert").addClass("d-none");
+        $(document.getElementById("resetPwForm")).removeClass("was-validated");
+        $("#resetPwUserId").val($(this).data("id"));
+        $("#resetPwUserName").text($(this).data("name"));
+        $("#resetPwNew").val("");
+        new bootstrap.Modal(document.getElementById("resetPwModal")).show();
+      });
+
+      $("#saveResetPwBtn").on("click", function () {
+        var form = document.getElementById("resetPwForm");
+        if (!form.checkValidity()) { $(form).addClass("was-validated"); return; }
+
+        var userId = parseInt($("#resetPwUserId").val(), 10);
+        var newPassword = $("#resetPwNew").val();
+        var $btn = $(this).prop("disabled", true).html('<span class="spinner-border spinner-border-sm"></span>');
+
+        CK.auth.adminResetPassword(userId, newPassword).done(function () {
+          $("#resetPwModal").modal("hide");
+          CK.toast("Password reset. They'll be asked to choose a new one at next login.", "success");
+          load();
+        }).fail(function (xhr) {
+          $("#resetPwAlert").text(CK.api.errorMessage(xhr, "Could not reset this password.")).removeClass("d-none");
+        }).always(function () { $btn.prop("disabled", false).html('<i class="bi bi-check2 me-1"></i>Set Password'); });
+      });
+
+      load();
+    });
+  </script>
+</body>
+</html>

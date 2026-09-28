@@ -1,0 +1,536 @@
+/* ==========================================================================
+   FaizMawaid Community Kitchen -- shared site theme
+   Warm, food-service palette; deliberately larger type and touch targets so
+   the app stays comfortable for older family members, not just admins.
+   ========================================================================== */
+
+:root {
+  --ck-primary: #0f7864;        /* deep teal-green -- freshness / kitchen */
+  --ck-primary-dark: #0b5b4c;
+  --ck-primary-light: #e4f3ef;
+  --ck-accent: #e07a29;         /* warm turmeric-orange -- food / action */
+  --ck-accent-dark: #b7621d;
+  --ck-accent-light: #fdece0;
+  --ck-danger: #c0392b;
+  --ck-danger-light: #fbeae8;
+  --ck-warning: #b98900;
+  --ck-warning-light: #fff6dd;
+  --ck-ink: #24302c;
+  --ck-ink-soft: #55625c;
+  --ck-bg: #f7f5f0;
+  --ck-card-bg: #ffffff;
+  --ck-border: #e2ddd2;
+  --ck-radius: 0.85rem;
+
+  --bs-primary: var(--ck-primary);
+  --bs-primary-rgb: 15, 120, 100;
+  --bs-body-font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --bs-body-font-size: 1.06rem;
+  --bs-body-color: var(--ck-ink);
+  --bs-body-bg: var(--ck-bg);
+  --bs-link-color: var(--ck-primary-dark);
+  --bs-link-hover-color: var(--ck-accent-dark);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: var(--ck-bg);
+  color: var(--ck-ink);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+body > main,
+body > #ck-app {
+  flex: 1 0 auto;
+}
+
+h1, h2, h3, h4, h5, h6,
+.ck-heading {
+  font-family: "Poppins", "Segoe UI", system-ui, sans-serif;
+  font-weight: 600;
+  color: var(--ck-ink);
+}
+
+.ck-eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--ck-primary-dark);
+}
+
+p, li, label, .form-label, .form-text, td, th {
+  font-size: 1rem;
+}
+
+small, .ck-small {
+  font-size: 0.9rem;
+}
+
+/* Buttons: comfortable tap targets for all ages */
+.btn {
+  font-weight: 600;
+  border-radius: 0.6rem;
+  padding-top: 0.55rem;
+  padding-bottom: 0.55rem;
+  min-height: 44px;
+}
+
+.btn-sm {
+  min-height: 36px;
+  padding-top: 0.3rem;
+  padding-bottom: 0.3rem;
+}
+
+.btn-lg {
+  min-height: 54px;
+  font-size: 1.12rem;
+}
+
+.btn-primary {
+  background-color: var(--ck-primary);
+  border-color: var(--ck-primary);
+}
+.btn-primary:hover, .btn-primary:focus {
+  background-color: var(--ck-primary-dark);
+  border-color: var(--ck-primary-dark);
+}
+
+.btn-accent {
+  background-color: var(--ck-accent);
+  border-color: var(--ck-accent);
+  color: #fff;
+}
+.btn-accent:hover, .btn-accent:focus {
+  background-color: var(--ck-accent-dark);
+  border-color: var(--ck-accent-dark);
+  color: #fff;
+}
+
+.btn-outline-primary {
+  color: var(--ck-primary-dark);
+  border-color: var(--ck-primary);
+}
+.btn-outline-primary:hover {
+  background-color: var(--ck-primary);
+  border-color: var(--ck-primary);
+}
+
+.form-control, .form-select {
+  font-size: 1.02rem;
+  padding: 0.55rem 0.85rem;
+  border-radius: 0.55rem;
+  border-color: var(--ck-border);
+  min-height: 46px;
+}
+.form-control:focus, .form-select:focus {
+  border-color: var(--ck-primary);
+  box-shadow: 0 0 0 0.2rem rgba(15, 120, 100, 0.18);
+}
+
+textarea.form-control {
+  min-height: 100px;
+}
+
+.form-label {
+  font-weight: 600;
+  color: var(--ck-ink);
+  margin-bottom: 0.35rem;
+}
+
+/* Cards */
+.card {
+  border: 1px solid var(--ck-border);
+  border-radius: var(--ck-radius);
+  background-color: var(--ck-card-bg);
+}
+
+.ck-card-elevated {
+  box-shadow: 0 6px 24px rgba(36, 48, 44, 0.08);
+  border: none;
+}
+
+.ck-stat-card {
+  border-radius: var(--ck-radius);
+  padding: 1.25rem 1.4rem;
+  background: var(--ck-card-bg);
+  border: 1px solid var(--ck-border);
+  box-shadow: 0 4px 16px rgba(36, 48, 44, 0.06);
+  height: 100%;
+}
+.ck-stat-card .ck-stat-value {
+  font-family: "Poppins", sans-serif;
+  font-size: 2.1rem;
+  font-weight: 700;
+  color: var(--ck-primary-dark);
+  line-height: 1.1;
+}
+.ck-stat-card .ck-stat-label {
+  color: var(--ck-ink-soft);
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+.ck-stat-card .ck-stat-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: var(--ck-primary-light);
+  color: var(--ck-primary-dark);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.4rem;
+}
+
+/* Quick-link tiles on dashboards */
+.ck-tile {
+  display: block;
+  text-decoration: none;
+  color: var(--ck-ink);
+  background: var(--ck-card-bg);
+  border: 1px solid var(--ck-border);
+  border-radius: var(--ck-radius);
+  padding: 1.35rem;
+  height: 100%;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease;
+}
+.ck-tile:hover, .ck-tile:focus {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 24px rgba(36, 48, 44, 0.12);
+  border-color: var(--ck-primary);
+  color: var(--ck-ink);
+}
+.ck-tile .ck-tile-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 0.65rem;
+  background: var(--ck-accent-light);
+  color: var(--ck-accent-dark);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.3rem;
+  margin-bottom: 0.75rem;
+}
+.ck-tile h5 {
+  margin-bottom: 0.25rem;
+}
+.ck-tile p {
+  color: var(--ck-ink-soft);
+  margin-bottom: 0;
+  font-size: 0.95rem;
+}
+
+/* Status badges */
+.badge {
+  font-weight: 600;
+  font-size: 0.82rem;
+  padding: 0.4em 0.75em;
+  border-radius: 0.5rem;
+}
+.badge-status-pending { background-color: var(--ck-warning-light); color: var(--ck-warning); }
+.badge-status-approved { background-color: var(--ck-primary-light); color: var(--ck-primary-dark); }
+.badge-status-rejected { background-color: var(--ck-danger-light); color: var(--ck-danger); }
+.badge-status-active { background-color: var(--ck-primary-light); color: var(--ck-primary-dark); }
+.badge-status-reinstated { background-color: #e9ecef; color: #495057; }
+.badge-status-inactive { background-color: #e9ecef; color: #6c757d; }
+
+/* Navbar */
+.ck-navbar {
+  background: var(--ck-card-bg);
+  border-bottom: 1px solid var(--ck-border);
+  box-shadow: 0 2px 10px rgba(36, 48, 44, 0.04);
+}
+.ck-navbar .navbar-brand {
+  font-family: "Poppins", sans-serif;
+  font-weight: 700;
+  color: var(--ck-primary-dark) !important;
+  font-size: 1.3rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.ck-navbar .navbar-brand .bi {
+  color: var(--ck-accent);
+}
+.ck-navbar .nav-link {
+  font-weight: 600;
+  color: var(--ck-ink-soft) !important;
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.85rem !important;
+}
+.ck-navbar .nav-link.active {
+  color: var(--ck-primary-dark) !important;
+  background-color: var(--ck-primary-light);
+}
+.ck-navbar .nav-link:hover {
+  color: var(--ck-primary-dark) !important;
+}
+.ck-navbar .ck-user-chip {
+  background: var(--ck-primary-light);
+  color: var(--ck-primary-dark);
+  border-radius: 2rem;
+  padding: 0.35rem 0.9rem;
+  font-weight: 600;
+  font-size: 0.92rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+/* Hero / landing */
+.ck-hero {
+  background: linear-gradient(135deg, var(--ck-primary) 0%, var(--ck-primary-dark) 100%);
+  color: #fff;
+  border-radius: 0 0 2rem 2rem;
+  padding: 3.5rem 0 4.5rem;
+}
+.ck-hero h1 {
+  color: #fff;
+  font-size: clamp(2rem, 4vw, 2.75rem);
+}
+.ck-hero p.lead {
+  color: rgba(255,255,255,0.92);
+  font-size: 1.15rem;
+}
+.ck-role-card {
+  border: none;
+  border-radius: 1.1rem;
+  padding: 2rem 1.75rem;
+  height: 100%;
+  box-shadow: 0 14px 34px rgba(15, 30, 25, 0.16);
+  background: var(--ck-card-bg);
+}
+.ck-role-card .ck-role-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.75rem;
+  margin-bottom: 1rem;
+}
+.ck-role-card.ck-role-family .ck-role-icon { background: var(--ck-primary-light); color: var(--ck-primary-dark); }
+.ck-role-card.ck-role-admin .ck-role-icon { background: var(--ck-accent-light); color: var(--ck-accent-dark); }
+
+/* Meal plan cards */
+.ck-meal-card {
+  border-radius: var(--ck-radius);
+  border: 1px solid var(--ck-border);
+  padding: 1rem 1.25rem;
+  background: var(--ck-card-bg);
+  height: 100%;
+}
+.ck-meal-card .ck-meal-date {
+  font-family: "Poppins", sans-serif;
+  font-weight: 700;
+  color: var(--ck-primary-dark);
+}
+.ck-meal-card .ck-meal-desc {
+  white-space: pre-wrap;
+  color: var(--ck-ink);
+}
+
+/* Meal calendar */
+.ck-cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+}
+.ck-cal-head {
+  text-align: center;
+  color: var(--ck-ink-soft);
+  font-weight: 600;
+  font-size: 0.85rem;
+  padding-bottom: 2px;
+}
+.ck-cal-day {
+  border: 1px solid var(--ck-border);
+  border-radius: var(--ck-radius);
+  background: var(--ck-card-bg);
+  padding: 0.5rem 0.6rem;
+  min-height: 108px;
+  display: flex;
+  flex-direction: column;
+}
+.ck-cal-day.ck-cal-outside {
+  background: var(--ck-bg);
+  border-style: dashed;
+  opacity: 0.55;
+}
+.ck-cal-day.ck-cal-today {
+  border-color: var(--ck-primary);
+  box-shadow: 0 0 0 1px var(--ck-primary) inset;
+}
+.ck-cal-day.ck-cal-closed {
+  background: #f4f1ec;
+}
+.ck-cal-daynum {
+  font-family: "Poppins", sans-serif;
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: var(--ck-ink);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.35rem;
+}
+.ck-cal-desc {
+  font-size: 0.78rem;
+  color: var(--ck-ink);
+  margin-top: 4px;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  flex: 1;
+}
+.ck-cal-meta {
+  font-size: 0.75rem;
+  margin-top: 4px;
+  display: inline-block;
+}
+@media (max-width: 700px) {
+  .ck-cal-grid { grid-template-columns: 1fr; }
+  .ck-cal-head { display: none; }
+  .ck-cal-day {
+    flex-direction: row;
+    align-items: center;
+    gap: 0.75rem;
+    min-height: auto;
+    padding: 0.6rem 0.75rem;
+  }
+  .ck-cal-daynum { flex-direction: column; align-items: flex-start; min-width: 3rem; }
+  .ck-cal-desc { -webkit-line-clamp: 2; margin-top: 0; }
+}
+
+/* Simple CSS bar chart for reports */
+.ck-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.6rem;
+}
+.ck-bar-label {
+  width: 140px;
+  flex-shrink: 0;
+  font-weight: 600;
+  font-size: 0.92rem;
+}
+.ck-bar-track {
+  flex: 1;
+  background: var(--ck-primary-light);
+  border-radius: 0.4rem;
+  height: 26px;
+  overflow: hidden;
+}
+.ck-bar-fill {
+  background: var(--ck-accent);
+  height: 100%;
+  border-radius: 0.4rem;
+  transition: width 0.4s ease;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  color: #fff;
+  font-size: 0.82rem;
+  font-weight: 700;
+  padding-right: 0.5rem;
+  min-width: 2px;
+}
+
+/* Utility */
+.ck-section-title {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 1rem;
+}
+.ck-section-title .bi {
+  color: var(--ck-accent);
+  font-size: 1.4rem;
+}
+.ck-muted { color: var(--ck-ink-soft); }
+.ck-empty-state {
+  text-align: center;
+  padding: 2.5rem 1rem;
+  color: var(--ck-ink-soft);
+}
+.ck-empty-state .bi {
+  font-size: 2.4rem;
+  color: var(--ck-border);
+  display: block;
+  margin-bottom: 0.75rem;
+}
+.ck-page-header {
+  padding: 1.75rem 0 1.25rem;
+}
+.ck-footer {
+  padding: 1.5rem 0;
+  color: var(--ck-ink-soft);
+  font-size: 0.88rem;
+  border-top: 1px solid var(--ck-border);
+  margin-top: 2.5rem;
+}
+.ck-footer-link {
+  color: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-color: var(--ck-border);
+  text-underline-offset: 2px;
+}
+.ck-footer-link:hover {
+  color: var(--ck-primary);
+}
+.ck-template-chip {
+  cursor: grab;
+  user-select: none;
+}
+.ck-template-chip:active {
+  cursor: grabbing;
+}
+.ck-loading {
+  text-align: center;
+  padding: 2rem;
+  color: var(--ck-ink-soft);
+}
+.table > :not(caption) > * > * {
+  padding: 0.75rem 0.9rem;
+  vertical-align: middle;
+}
+.table thead th {
+  font-family: "Poppins", sans-serif;
+  font-weight: 600;
+  color: var(--ck-ink-soft);
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-bottom-width: 2px;
+}
+
+/* Larger-text mode is the default; keep focus rings visible for accessibility */
+a:focus-visible, button:focus-visible, .btn:focus-visible, .nav-link:focus-visible {
+  outline: 3px solid var(--ck-accent);
+  outline-offset: 2px;
+}
+
+/* Responsive tweaks */
+@media (max-width: 767.98px) {
+  .ck-hero { padding: 2.5rem 0 3rem; border-radius: 0 0 1.5rem 1.5rem; }
+  .ck-bar-label { width: 96px; font-size: 0.82rem; }
+  body { font-size: 1rem; }
+  .ck-stat-card .ck-stat-value { font-size: 1.7rem; }
+  .ck-navbar .navbar-brand { font-size: 1rem; }
+}
+
+@media (min-width: 1400px) {
+  .container, .container-lg, .container-xl {
+    max-width: 1240px;
+  }
+}

@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+  <title>Reports - Faiz al-Mawaid al-Burhaniyah Admin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+  <link href="../css/site.css?v=20260927b" rel="stylesheet">
+</head>
+<body>
+  <div id="ckNavbar"></div>
+
+  <main class="container my-4" style="max-width:900px;">
+    <div class="ck-page-header">
+      <h1 class="mb-1"><i class="bi bi-bar-chart-fill me-2"></i>Daily Thaali Count</h1>
+      <p class="ck-muted mb-0">How many thaalis to prepare for a day, by size.</p>
+    </div>
+
+    <div class="d-flex align-items-end gap-2 mb-4 flex-wrap">
+      <div>
+        <label class="form-label mb-1" for="reportDate">Date</label>
+        <input type="date" class="form-control" id="reportDate">
+      </div>
+      <button class="btn btn-primary" id="loadBtn"><i class="bi bi-search me-1"></i>View Report</button>
+    </div>
+
+    <div id="loadingBox" class="ck-loading d-none"><div class="spinner-border text-primary"></div></div>
+
+    <div class="card ck-card-elevated d-none" id="reportCard">
+      <div class="card-body p-4 p-md-5">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
+          <div>
+            <div class="ck-eyebrow" id="reportDateLabel"></div>
+            <div class="ck-stat-value" id="reportTotal">0</div>
+            <div class="ck-stat-label">Total Thaalis Needed</div>
+          </div>
+          <span id="servingBadge" class="badge fs-6"></span>
+        </div>
+
+        <div id="breakdownBox"></div>
+        <div id="noDataNote" class="ck-empty-state d-none"><i class="bi bi-inboxes"></i>No approved &amp; active families for this size breakdown.</div>
+      </div>
+    </div>
+
+    <hr class="my-5">
+
+    <div class="ck-page-header">
+      <h1 class="mb-1"><i class="bi bi-calendar-x-fill me-2"></i>Cancelled Thaalis</h1>
+      <p class="ck-muted mb-0">Which families won't be taking their thaali, over any date range &mdash; check a single day, or a whole week at once.</p>
+    </div>
+
+    <div class="d-flex align-items-end gap-2 mb-4 flex-wrap">
+      <div>
+        <label class="form-label mb-1" for="cFromDate">From</label>
+        <input type="date" class="form-control" id="cFromDate">
+      </div>
+      <div>
+        <label class="form-label mb-1" for="cToDate">To</label>
+        <input type="date" class="form-control" id="cToDate">
+      </div>
+      <button class="btn btn-primary" id="cLoadBtn"><i class="bi bi-search me-1"></i>View Report</button>
+    </div>
+
+    <div id="cLoadingBox" class="ck-loading d-none"><div class="spinner-border text-primary"></div></div>
+    <div id="cErrorBox" class="alert alert-danger d-none"></div>
+
+    <div class="card ck-card-elevated d-none" id="cancelledCard">
+      <div class="card-body p-4 p-md-5">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
+          <div>
+            <div class="ck-eyebrow" id="cRangeLabel"></div>
+            <div class="ck-stat-value" id="cancelledTotal">0</div>
+            <div class="ck-stat-label">Cancelled Thaalis Across This Range</div>
+          </div>
+        </div>
+        <div id="cDaysBox" class="d-flex flex-column gap-4"></div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="ck-footer text-center"><div class="container"><a href="https://www.thedawoodibohras.com/faiz-al-mawaid-al-burhaniyah/" target="_blank" rel="noopener" class="ck-footer-link">Faiz al-Mawaid al-Burhaniyah</a> Community Kitchen</div></footer>
+
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="../js/site.js?v=20260927b"></script>
+  <script>
+    $(function () {
+      var session = CK.session.requireAdmin();
+      if (!session) { return; }
+      CK.nav.render("admin", "reports");
+
+      $("#reportDate").val(CK.today());
+      $("#cFromDate").val(CK.today());
+      $("#cToDate").val(CK.today());
+
+      // ---- Daily Thaali Count ----
+      function loadThaaliCount() {
+        var date = $("#reportDate").val();
+        if (!date) { return; }
+        $("#loadingBox").removeClass("d-none");
+        $("#reportCard").addClass("d-none");
+
+        CK.api.get("/api/reports/daily-thaali-count?date=" + date).done(function (report) {
+          $("#loadingBox").addClass("d-none");
+          $("#reportCard").removeClass("d-none");
+          $("#reportDateLabel").text(CK.fmt.date(report.date));
+          $("#reportTotal").text(report.totalThaalis);
+          $("#servingBadge").text(report.isServingDay ? "Serving Day" : "Not Serving").attr("class", "badge fs-6 " + (report.isServingDay ? "badge-status-active" : "badge-status-rejected"));
+
+          var $box = $("#breakdownBox").empty();
+          if (!report.byThaaliSize || report.byThaaliSize.length === 0 || report.totalThaalis === 0) {
+            $("#noDataNote").removeClass("d-none");
+            return;
+          }
+          $("#noDataNote").addClass("d-none");
+          var max = Math.max.apply(null, $.map(report.byThaaliSize, function (b) { return b.count; }));
+          $.each(report.byThaaliSize, function (i, b) {
+            var pct = max > 0 ? Math.round((b.count / max) * 100) : 0;
+            $box.append(
+              '<div class="ck-bar-row">' +
+                '<div class="ck-bar-label">' + CK.esc(b.thaaliSizeName) + '</div>' +
+                '<div class="ck-bar-track"><div class="ck-bar-fill" style="width:' + Math.max(pct, 6) + '%">' + b.count + '</div></div>' +
+              '</div>'
+            );
+          });
+        }).fail(function (xhr) {
+          $("#loadingBox").addClass("d-none");
+          CK.toast(CK.api.errorMessage(xhr, "Could not load the report."), "danger");
+        });
+      }
+
+      $("#loadBtn").on("click", loadThaaliCount);
+      loadThaaliCount();
+
+      // ---- Cancelled Thaalis (date range) ----
+      function dayHeaderHtml(day) {
+        var label = CK.fmt.date(day.date);
+        var badge = day.isServingDay
+          ? ''
+          : '<span class="badge ms-2 badge-status-rejected">Kitchen Closed</span>';
+        return '<div class="d-flex align-items-center gap-2 mb-2"><h6 class="mb-0">' + CK.esc(label) + '</h6>' + badge + '</div>';
+      }
+
+      function dayTableHtml(cancellations) {
+        if (!cancellations || cancellations.length === 0) {
+          return '<div class="ck-empty-state py-3"><i class="bi bi-emoji-smile"></i>No cancellations this day.</div>';
+        }
+        var rows = '';
+        $.each(cancellations, function (i, c) {
+          var sabilCell = (c.sabilNumber ? "Sabil " + CK.esc(c.sabilNumber) : "Family #" + c.familyId) +
+            (c.subFamilyLabel ? ('<div class="ck-muted small">' + CK.esc(c.subFamilyLabel) + '</div>') : '');
+          rows +=
+            '<tr>' +
+              '<td>' + sabilCell + '</td>' +
+              '<td>' + (c.address ? CK.esc(c.address) : '<span class="ck-muted">&mdash;</span>') + '</td>' +
+              '<td>' + CK.esc(c.thaaliSizeName) + '</td>' +
+              '<td>' + (c.reason ? CK.esc(c.reason) : '<span class="ck-muted">&mdash;</span>') + '</td>' +
+            '</tr>';
+        });
+        return (
+          '<div class="table-responsive">' +
+            '<table class="table align-middle mb-0">' +
+              '<thead><tr><th>Sabil No.</th><th>Address</th><th>Size</th><th>Reason</th></tr></thead>' +
+              '<tbody>' + rows + '</tbody>' +
+            '</table>' +
+          '</div>'
+        );
+      }
+
+      function renderCancelledRange(report) {
+        $("#cRangeLabel").text(
+          report.fromDate === report.toDate
+            ? CK.fmt.date(report.fromDate)
+            : (CK.fmt.date(report.fromDate) + " – " + CK.fmt.date(report.toDate))
+        );
+        $("#cancelledTotal").text(report.totalCancelledInstances);
+
+        var $box = $("#cDaysBox").empty();
+        $.each(report.days || [], function (i, day) {
+          $box.append(
+            '<div class="' + (day.isServingDay ? '' : 'opacity-75') + '">' +
+              dayHeaderHtml(day) +
+              dayTableHtml(day.cancellations) +
+            '</div>'
+          );
+        });
+      }
+
+      function loadCancelledRange() {
+        var from = $("#cFromDate").val();
+        var to = $("#cToDate").val();
+        if (!from || !to) { return; }
+        $("#cErrorBox").addClass("d-none");
+        if (to < from) {
+          $("#cErrorBox").text("The end date must be on or after the start date.").removeClass("d-none");
+          return;
+        }
+        $("#cLoadingBox").removeClass("d-none");
+        $("#cancelledCard").addClass("d-none");
+
+        CK.api.get("/api/reports/cancelled-thaalis?from=" + from + "&to=" + to).done(function (report) {
+          $("#cLoadingBox").addClass("d-none");
+          $("#cancelledCard").removeClass("d-none");
+          renderCancelledRange(report);
+        }).fail(function (xhr) {
+          $("#cLoadingBox").addClass("d-none");
+          $("#cErrorBox").text(CK.api.errorMessage(xhr, "Could not load this report.")).removeClass("d-none");
+        });
+      }
+
+      $("#cLoadBtn").on("click", loadCancelledRange);
+      loadCancelledRange();
+    });
+  </script>
+</body>
+</html>

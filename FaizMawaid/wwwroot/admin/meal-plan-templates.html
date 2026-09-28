@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+  <title>Meal Plan Templates - Faiz al-Mawaid al-Burhaniyah Admin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+  <link href="../css/site.css?v=20260927b" rel="stylesheet">
+</head>
+<body>
+  <div id="ckNavbar"></div>
+
+  <main class="container my-4" style="max-width:820px;">
+    <div class="ck-page-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+      <div>
+        <h1 class="mb-1"><i class="bi bi-collection-fill me-2"></i>Meal Plan Templates</h1>
+        <p class="ck-muted mb-0">Canned meal descriptions for meals that repeat often. Add them here, then drag or click them onto the Meal Plans form.</p>
+      </div>
+      <div class="d-flex gap-2">
+        <a href="meal-plans.html" class="btn btn-outline-primary"><i class="bi bi-journal-text me-1"></i>Meal Plans</a>
+        <button class="btn btn-primary" id="addBtn"><i class="bi bi-plus-lg me-1"></i>Add Template</button>
+      </div>
+    </div>
+
+    <div id="loadingBox" class="ck-loading"><div class="spinner-border text-primary"></div></div>
+    <div id="emptyBox" class="ck-empty-state d-none">
+      <i class="bi bi-collection"></i>
+      No templates yet. Add your most common meals so they're a click away.
+    </div>
+
+    <div class="table-responsive d-none" id="tableWrap">
+      <table class="table align-middle bg-white">
+        <thead><tr><th>Order</th><th>Name</th><th>Meal Description</th><th></th></tr></thead>
+        <tbody id="templatesBody"></tbody>
+      </table>
+    </div>
+  </main>
+
+  <div class="modal fade" id="templateModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title" id="templateModalTitle"><i class="bi bi-collection me-2"></i>Add Template</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body">
+          <div id="templateAlert" class="alert alert-danger d-none"></div>
+          <form id="templateForm" novalidate>
+            <input type="hidden" id="templateId">
+            <div class="mb-3">
+              <label class="form-label" for="templateName">Label</label>
+              <input type="text" class="form-control" id="templateName" required maxlength="100" placeholder="e.g. Khichdi & Kadhi">
+              <div class="form-text">A short name shown on the chip -- doesn't need to match the meal description.</div>
+              <div class="invalid-feedback">Please enter a label.</div>
+            </div>
+            <div class="mb-3">
+              <label class="form-label d-flex justify-content-between" for="templateDescription">
+                <span>Meal description</span>
+                <span class="ck-muted fw-normal ck-small"><span id="charCount">0</span>/500</span>
+              </label>
+              <textarea class="form-control" id="templateDescription" required maxlength="500" rows="3" placeholder="e.g. Khichdi, Kadhi, Papad, Pickle"></textarea>
+              <div class="form-text">This is the exact text inserted into the Meal Plans form.</div>
+              <div class="invalid-feedback">Please enter the meal description.</div>
+            </div>
+            <div class="mb-3">
+              <label class="form-label" for="templateSortOrder">Display order</label>
+              <input type="number" class="form-control" id="templateSortOrder" required min="0" max="255">
+              <div class="form-text">Controls the order chips appear in (smallest first).</div>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button class="btn btn-primary" id="saveTemplateBtn"><i class="bi bi-check2 me-1"></i>Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="deleteTemplateModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title"><i class="bi bi-exclamation-triangle text-danger me-2"></i>Delete Template</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body">
+          <p class="mb-0">Delete <strong id="deleteTemplateName"></strong>? This only removes it from the template list -- any meal plans already saved using this text are unaffected.</p>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button class="btn btn-danger" id="confirmDeleteTemplateBtn"><i class="bi bi-trash me-1"></i>Delete</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer class="ck-footer text-center"><div class="container"><a href="https://www.thedawoodibohras.com/faiz-al-mawaid-al-burhaniyah/" target="_blank" rel="noopener" class="ck-footer-link">Faiz al-Mawaid al-Burhaniyah</a> Community Kitchen</div></footer>
+
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="../js/site.js?v=20260927b"></script>
+  <script>
+    $(function () {
+      var session = CK.session.requireAdmin();
+      if (!session) { return; }
+      CK.nav.render("admin", "kitchen");
+
+      $("#templateDescription").on("input", function () { $("#charCount").text($(this).val().length); });
+
+      function load() {
+        $("#loadingBox").show();
+        $("#tableWrap").addClass("d-none");
+        $("#emptyBox").addClass("d-none");
+        CK.api.get("/api/mealplantemplates").done(function (templates) {
+          $("#loadingBox").hide();
+          var $body = $("#templatesBody").empty();
+          if (!templates || templates.length === 0) {
+            $("#emptyBox").removeClass("d-none");
+            return;
+          }
+          $("#tableWrap").removeClass("d-none");
+          templates.sort(function (a, b) { return a.sortOrder - b.sortOrder; });
+          $.each(templates, function (i, t) {
+            $body.append(
+              '<tr>' +
+                '<td>' + t.sortOrder + '</td>' +
+                '<td class="fw-semibold">' + CK.esc(t.name) + '</td>' +
+                '<td class="ck-muted ck-small">' + CK.esc(t.mealDescription) + '</td>' +
+                '<td class="text-end">' +
+                  '<button class="btn btn-sm btn-outline-secondary edit-btn me-1" data-id="' + t.id + '" data-name="' + CK.esc(t.name) + '" data-desc="' + CK.esc(t.mealDescription) + '" data-order="' + t.sortOrder + '"><i class="bi bi-pencil me-1"></i>Edit</button>' +
+                  '<button class="btn btn-sm btn-outline-danger delete-btn" data-id="' + t.id + '" data-name="' + CK.esc(t.name) + '"><i class="bi bi-trash me-1"></i>Delete</button>' +
+                '</td>' +
+              '</tr>'
+            );
+          });
+        }).fail(function (xhr) {
+          $("#loadingBox").hide();
+          CK.toast(CK.api.errorMessage(xhr, "Could not load templates."), "danger");
+        });
+      }
+
+      function openModal(id, name, desc, order) {
+        $("#templateAlert").addClass("d-none");
+        $(document.getElementById("templateForm")).removeClass("was-validated");
+        $("#templateId").val(id || "");
+        $("#templateName").val(name || "");
+        $("#templateDescription").val(desc || "");
+        $("#charCount").text((desc || "").length);
+        $("#templateSortOrder").val(order !== undefined ? order : "");
+        $("#templateModalTitle").html(id ? '<i class="bi bi-pencil me-2"></i>Edit Template' : '<i class="bi bi-collection me-2"></i>Add Template');
+        new bootstrap.Modal(document.getElementById("templateModal")).show();
+      }
+
+      $("#addBtn").on("click", function () { openModal(null, "", "", 0); });
+      $(document).on("click", ".edit-btn", function () {
+        openModal($(this).data("id"), $(this).data("name"), $(this).data("desc"), $(this).data("order"));
+      });
+
+      $("#saveTemplateBtn").on("click", function () {
+        var form = document.getElementById("templateForm");
+        if (!form.checkValidity()) { $(form).addClass("was-validated"); return; }
+
+        var id = $("#templateId").val();
+        var payload = {
+          name: $("#templateName").val().trim(),
+          mealDescription: $("#templateDescription").val().trim(),
+          sortOrder: parseInt($("#templateSortOrder").val(), 10),
+          createdByUserId: session.userId
+        };
+        var $btn = $(this).prop("disabled", true).html('<span class="spinner-border spinner-border-sm"></span>');
+
+        var request = id ? CK.api.put("/api/mealplantemplates/" + id, payload) : CK.api.post("/api/mealplantemplates", payload);
+        request.done(function () {
+          $("#templateModal").modal("hide");
+          CK.toast(id ? "Template updated." : "Template added.", "success");
+          load();
+        }).fail(function (xhr) {
+          $("#templateAlert").text(CK.api.errorMessage(xhr, "Could not save this template.")).removeClass("d-none");
+        }).always(function () { $btn.prop("disabled", false).html('<i class="bi bi-check2 me-1"></i>Save'); });
+      });
+
+      var deleteTargetId = null;
+      $(document).on("click", ".delete-btn", function () {
+        deleteTargetId = $(this).data("id");
+        $("#deleteTemplateName").text($(this).data("name"));
+        $("#confirmDeleteTemplateBtn").prop("disabled", false).html('<i class="bi bi-trash me-1"></i>Delete');
+        new bootstrap.Modal(document.getElementById("deleteTemplateModal")).show();
+      });
+
+      $("#confirmDeleteTemplateBtn").on("click", function () {
+        if (!deleteTargetId) { return; }
+        var $btn = $(this).prop("disabled", true).html('<span class="spinner-border spinner-border-sm"></span>');
+        CK.api.del("/api/mealplantemplates/" + deleteTargetId).done(function () {
+          $("#deleteTemplateModal").modal("hide");
+          CK.toast("Template deleted.", "success");
+          load();
+        }).fail(function (xhr) {
+          CK.toast(CK.api.errorMessage(xhr, "Could not delete this template."), "danger");
+        }).always(function () { $btn.prop("disabled", false).html('<i class="bi bi-trash me-1"></i>Delete'); });
+      });
+
+      load();
+    });
+  </script>
+</body>
+</html>

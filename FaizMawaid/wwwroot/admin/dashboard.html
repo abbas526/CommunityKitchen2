@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+  <title>Admin Dashboard - Faiz al-Mawaid al-Burhaniyah</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+  <link href="../css/site.css?v=20260927b" rel="stylesheet">
+</head>
+<body>
+  <div id="ckNavbar"></div>
+
+  <main class="container my-4">
+    <div class="ck-page-header">
+      <h1 class="mb-1"><i class="bi bi-speedometer2 me-2"></i>Dashboard</h1>
+      <p class="ck-muted mb-0">A quick look at today's kitchen.</p>
+    </div>
+
+    <div class="row g-3 mb-5">
+      <div class="col-6 col-lg-3">
+        <div class="ck-stat-card">
+          <div class="d-flex justify-content-between align-items-start">
+            <div>
+              <div class="ck-stat-value" id="statPending">&hellip;</div>
+              <div class="ck-stat-label">Pending Registrations</div>
+            </div>
+            <div class="ck-stat-icon"><i class="bi bi-person-check"></i></div>
+          </div>
+        </div>
+      </div>
+      <div class="col-6 col-lg-3">
+        <div class="ck-stat-card">
+          <div class="d-flex justify-content-between align-items-start">
+            <div>
+              <div class="ck-stat-value" id="statActive">&hellip;</div>
+              <div class="ck-stat-label">Active Families</div>
+            </div>
+            <div class="ck-stat-icon"><i class="bi bi-people"></i></div>
+          </div>
+        </div>
+      </div>
+      <div class="col-6 col-lg-3">
+        <div class="ck-stat-card">
+          <div class="d-flex justify-content-between align-items-start">
+            <div>
+              <div class="ck-stat-value" id="statThaalis">&hellip;</div>
+              <div class="ck-stat-label" id="statThaalisLabel">Thaalis Today</div>
+            </div>
+            <div class="ck-stat-icon"><i class="bi bi-basket2"></i></div>
+          </div>
+        </div>
+      </div>
+      <div class="col-6 col-lg-3">
+        <div class="ck-stat-card">
+          <div class="d-flex justify-content-between align-items-start">
+            <div>
+              <div class="ck-stat-value" id="statServing" style="font-size:1.3rem;">&hellip;</div>
+              <div class="ck-stat-label">Today's Status</div>
+            </div>
+            <div class="ck-stat-icon"><i class="bi bi-calendar-check"></i></div>
+          </div>
+        </div>
+      </div>
+      <div class="col-6 col-lg-3">
+        <a class="ck-stat-card d-block text-decoration-none" href="feedback.html">
+          <div class="d-flex justify-content-between align-items-start">
+            <div>
+              <div class="ck-stat-value" id="statFeedbackOpen">&hellip;</div>
+              <div class="ck-stat-label">Feedback Awaiting Response</div>
+            </div>
+            <div class="ck-stat-icon"><i class="bi bi-chat-left-text"></i></div>
+          </div>
+        </a>
+      </div>
+      <div class="col-6 col-lg-3">
+        <a class="ck-stat-card d-block text-decoration-none" href="address-change-requests.html">
+          <div class="d-flex justify-content-between align-items-start">
+            <div>
+              <div class="ck-stat-value" id="statAddressChangePending">&hellip;</div>
+              <div class="ck-stat-label">Address Changes Pending</div>
+            </div>
+            <div class="ck-stat-icon"><i class="bi bi-house-gear"></i></div>
+          </div>
+        </a>
+      </div>
+      <div class="col-6 col-lg-3">
+        <a class="ck-stat-card d-block text-decoration-none" href="thaali-size-change-requests.html">
+          <div class="d-flex justify-content-between align-items-start">
+            <div>
+              <div class="ck-stat-value" id="statSizeChangePending">&hellip;</div>
+              <div class="ck-stat-label">Size Changes Pending</div>
+            </div>
+            <div class="ck-stat-icon"><i class="bi bi-box-seam"></i></div>
+          </div>
+        </a>
+      </div>
+    </div>
+
+    <div class="row g-4 mb-5">
+      <div class="col-lg-7">
+        <div class="ck-section-title"><i class="bi bi-egg-fried"></i><h5 class="mb-0">Today's Meal</h5></div>
+        <div class="card">
+          <div class="card-body p-4" id="todayMealBox">
+            <div class="ck-loading"><div class="spinner-border text-primary"></div></div>
+          </div>
+        </div>
+      </div>
+      <div class="col-lg-5">
+        <div class="ck-section-title"><i class="bi bi-basket2-fill"></i><h5 class="mb-0">Thaalis by Size</h5></div>
+        <div class="card">
+          <div class="card-body p-4" id="sizeBreakdownBox">
+            <div class="ck-loading"><div class="spinner-border text-primary"></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="ck-section-title"><i class="bi bi-grid-fill"></i><h5 class="mb-0">Quick Links</h5></div>
+    <div class="row g-3">
+      <div class="col-6 col-md-3"><a class="ck-tile" href="registrations.html"><div class="ck-tile-icon"><i class="bi bi-person-check"></i></div><h5>Registrations</h5><p>Approve or reject new families</p></a></div>
+      <div class="col-6 col-md-3"><a class="ck-tile" href="families.html"><div class="ck-tile-icon"><i class="bi bi-people"></i></div><h5>Families</h5><p>Manage all registered families</p></a></div>
+      <div class="col-6 col-md-3"><a class="ck-tile" href="meal-calendar.html"><div class="ck-tile-icon"><i class="bi bi-calendar3"></i></div><h5>Meal Calendar</h5><p>See a whole month at a glance</p></a></div>
+      <div class="col-6 col-md-3"><a class="ck-tile" href="meal-plans.html"><div class="ck-tile-icon"><i class="bi bi-journal-text"></i></div><h5>Meal Plans</h5><p>Enter upcoming meals</p></a></div>
+      <div class="col-6 col-md-3"><a class="ck-tile" href="thaali-sizes.html"><div class="ck-tile-icon"><i class="bi bi-box-seam"></i></div><h5>Thaali Sizes</h5><p>Define the sizes on offer</p></a></div>
+      <div class="col-6 col-md-3"><a class="ck-tile" href="non-serving-days.html"><div class="ck-tile-icon"><i class="bi bi-calendar-x"></i></div><h5>Non-Serving Days</h5><p>Mark holidays &amp; closures</p></a></div>
+      <div class="col-6 col-md-3"><a class="ck-tile" href="settings.html"><div class="ck-tile-icon"><i class="bi bi-gear"></i></div><h5>App Settings</h5><p>Control meal visibility window</p></a></div>
+      <div class="col-6 col-md-3"><a class="ck-tile" href="reports.html"><div class="ck-tile-icon"><i class="bi bi-bar-chart"></i></div><h5>Reports</h5><p>Daily thaali count</p></a></div>
+      <div class="col-6 col-md-3"><a class="ck-tile" href="audit-log.html"><div class="ck-tile-icon"><i class="bi bi-clock-history"></i></div><h5>Audit Log</h5><p>See who changed what</p></a></div>
+      <div class="col-6 col-md-3"><a class="ck-tile" href="feedback.html"><div class="ck-tile-icon"><i class="bi bi-chat-left-text"></i></div><h5>Family Feedback</h5><p>Read and respond to families</p></a></div>
+      <div class="col-6 col-md-3"><a class="ck-tile" href="address-change-requests.html"><div class="ck-tile-icon"><i class="bi bi-house-gear"></i></div><h5>Address Changes</h5><p>Review and approve requests</p></a></div>
+      <div class="col-6 col-md-3"><a class="ck-tile" href="thaali-size-change-requests.html"><div class="ck-tile-icon"><i class="bi bi-box-seam"></i></div><h5>Size Changes</h5><p>Review and approve requests</p></a></div>
+    </div>
+  </main>
+
+  <footer class="ck-footer text-center">
+    <div class="container"><a href="https://www.thedawoodibohras.com/faiz-al-mawaid-al-burhaniyah/" target="_blank" rel="noopener" class="ck-footer-link">Faiz al-Mawaid al-Burhaniyah</a> Community Kitchen</div>
+  </footer>
+
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="../js/site.js?v=20260927b"></script>
+  <script>
+    $(function () {
+      var session = CK.session.requireAdmin();
+      if (!session) { return; }
+      CK.nav.render("admin", "dashboard");
+
+      var today = CK.today();
+      var todayYear = new Date().getFullYear();
+
+      CK.api.get("/api/families?status=Pending").done(function (list) {
+        $("#statPending").text((list || []).length);
+      }).fail(function () { $("#statPending").text("—"); });
+
+      CK.api.get("/api/feedback/open-count").done(function (count) {
+        $("#statFeedbackOpen").text(count);
+      }).fail(function () { $("#statFeedbackOpen").text("—"); });
+
+      CK.api.get("/api/addresschangerequests/pending-count").done(function (count) {
+        $("#statAddressChangePending").text(count);
+      }).fail(function () { $("#statAddressChangePending").text("—"); });
+
+      CK.api.get("/api/thaalisizechangerequests/pending-count").done(function (count) {
+        $("#statSizeChangePending").text(count);
+      }).fail(function () { $("#statSizeChangePending").text("—"); });
+
+      CK.api.get("/api/families?status=Approved").done(function (list) {
+        var activeCount = 0;
+        $.each(list || [], function (i, f) { if (f.isActive) { activeCount++; } });
+        $("#statActive").text(activeCount);
+      }).fail(function () { $("#statActive").text("—"); });
+
+      // The report endpoint is the authoritative source for "is today a serving day" --
+      // it already accounts for Sundays and NonServingDays server-side. We only do our
+      // own Sunday/NonServingDays lookup afterwards, and only to show a friendly reason.
+      CK.api.get("/api/reports/daily-thaali-count?date=" + today).done(function (report) {
+        if (!report.isServingDay) {
+          $("#statServing").html('<span class="text-danger"><i class="bi bi-x-circle-fill"></i> Not Serving</span>');
+          $("#statThaalis").text("0");
+          $("#sizeBreakdownBox").html('<div class="ck-empty-state py-3"><i class="bi bi-inboxes"></i>Nothing to prepare -- the kitchen isn\'t serving today.</div>');
+
+          var isSunday = new Date().getDay() === 0;
+          if (isSunday) {
+            $("#todayMealBox").html('<div class="ck-empty-state py-3"><i class="bi bi-moon-stars"></i>The kitchen doesn\'t serve food on Sundays.</div>');
+          } else {
+            CK.api.get("/api/nonservingdays?year=" + todayYear).done(function (nonServingDays) {
+              var reason = "Holiday";
+              $.each(nonServingDays || [], function (i, d) { if (d.theDate === today) { reason = d.reason || "Holiday"; } });
+              $("#todayMealBox").html('<div class="ck-empty-state py-3"><i class="bi bi-moon-stars"></i>The kitchen isn\'t serving today (' + CK.esc(reason) + ').</div>');
+            });
+          }
+          return;
+        }
+
+        $("#statServing").html('<span class="text-success"><i class="bi bi-check-circle-fill"></i> Serving Today</span>');
+        $("#statThaalis").text(report.totalThaalis);
+        renderBreakdown(report);
+
+        CK.api.get("/api/mealplans?from=" + today + "&to=" + today).done(function (meals) {
+          if (meals && meals.length > 0) {
+            $("#todayMealBox").html('<div class="ck-meal-date mb-2">' + CK.fmt.date(today) + '</div><div class="ck-meal-desc">' + CK.esc(meals[0].mealDescription) + '</div>');
+          } else {
+            $("#todayMealBox").html('<div class="ck-empty-state py-3"><i class="bi bi-journal-x"></i>No meal has been entered for today yet. <a href="meal-plans.html">Add one</a>.</div>');
+          }
+        });
+      }).fail(function () {
+        $("#statServing").text("\u2014");
+        $("#sizeBreakdownBox").html('<p class="ck-muted mb-0">Could not load the report.</p>');
+      });
+
+      function renderBreakdown(report) {
+        var $box = $("#sizeBreakdownBox").empty();
+        if (!report.byThaaliSize || report.byThaaliSize.length === 0 || report.totalThaalis === 0) {
+          $box.html('<div class="ck-empty-state py-3"><i class="bi bi-inboxes"></i>No thaalis recorded for today yet.</div>');
+          return;
+        }
+        var max = Math.max.apply(null, $.map(report.byThaaliSize, function (b) { return b.count; }));
+        $.each(report.byThaaliSize, function (i, b) {
+          var pct = max > 0 ? Math.round((b.count / max) * 100) : 0;
+          $box.append(
+            '<div class="ck-bar-row">' +
+              '<div class="ck-bar-label">' + CK.esc(b.thaaliSizeName) + '</div>' +
+              '<div class="ck-bar-track"><div class="ck-bar-fill" style="width:' + Math.max(pct, 6) + '%">' + b.count + '</div></div>' +
+            '</div>'
+          );
+        });
+      }
+    });
+  </script>
+</body>
+</html>
