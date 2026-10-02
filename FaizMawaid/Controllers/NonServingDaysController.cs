@@ -1,6 +1,7 @@
 using FaizMawaid.Models;
 using FaizMawaid.Models.Dtos;
 using FaizMawaid.Repositories.Interfaces;
+using FaizMawaid.Utils;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
@@ -27,7 +28,8 @@ namespace FaizMawaid.Controllers
             return Ok(await _nonServingDayRepository.GetAllAsync(year));
         }
 
-        /// <summary>Sundays don't need a row here -- that's a fixed weekly rule applied in code. This is only for the extra exception dates.</summary>
+        /// <summary>Sundays, and the entire month of Ramadan (Hijri), don't need a row here --
+        /// both are fixed rules applied in code. This is only for the extra exception dates.</summary>
         [HttpPost]
         [Authorize(Roles = RoleNames.Admin)]
         public async Task<IActionResult> Create(CreateNonServingDayRequest request)
@@ -35,6 +37,11 @@ namespace FaizMawaid.Controllers
             if (request.TheDate.DayOfWeek == DayOfWeek.Sunday)
             {
                 return BadRequest("Sundays are already a non-serving day by default -- no need to add them here.");
+            }
+
+            if (MisriCalendar.IsRamadan(request.TheDate))
+            {
+                return BadRequest("The entire month of Ramadan is already a non-serving period by default -- no need to add it here.");
             }
 
             uint id;

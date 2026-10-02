@@ -325,6 +325,7 @@ namespace FaizMawaid.Controllers
         {
             var response = new BulkFamilyImportResponse();
             var sizes = (await _thaaliSizeRepository.GetAllAsync()).ToList();
+            var areas = (await _areaRepository.GetAllAsync()).ToList();
             var seenEmails = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             var seenSabilNumbers = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
@@ -376,6 +377,21 @@ namespace FaizMawaid.Controllers
                     continue;
                 }
 
+                byte? areaId = null;
+                if (!string.IsNullOrWhiteSpace(item.AreaName))
+                {
+                    var area = areas.FirstOrDefault(a => string.Equals(a.Name, item.AreaName.Trim(), StringComparison.OrdinalIgnoreCase));
+                    if (area is null)
+                    {
+                        rowResult.Status = "Skipped";
+                        rowResult.Message = $"Area '{item.AreaName}' doesn't match any Area defined in the system.";
+                        response.SkippedCount++;
+                        response.Rows.Add(rowResult);
+                        continue;
+                    }
+                    areaId = area.Id;
+                }
+
                 var existingEmail = await _userRepository.GetByEmailAsync(item.Email);
                 if (existingEmail is not null)
                 {
@@ -406,6 +422,7 @@ namespace FaizMawaid.Controllers
                         FullName = item.FullName,
                         Phone = item.Phone,
                         Address = item.Address,
+                        AreaId = areaId,
                         NumberOfMembers = item.NumberOfMembers,
                         ThaaliSizeId = size.Id
                     };

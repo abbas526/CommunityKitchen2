@@ -2,6 +2,7 @@ using FaizMawaid.Controllers;
 using FaizMawaid.Models;
 using FaizMawaid.Models.Dtos;
 using FaizMawaid.Repositories.Interfaces;
+using FaizMawaid.Utils;
 using Microsoft.AspNetCore.Mvc;
 using Moq;
 using Xunit;
@@ -10,15 +11,21 @@ namespace FaizMawaid.Tests.ControllerTests
 {
     public class MealPlansControllerTests
     {
+        /// <summary>A date that passes both the Sunday and Ramadan serving-day rules -- so tests
+        /// that are just exercising something else don't flake if "30 days from today" happens to
+        /// land in Ramadan for whatever year the tests run in.</summary>
         private static DateOnly NextNonSunday(int daysAhead = 30)
         {
             var date = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(daysAhead));
-            while (date.DayOfWeek == DayOfWeek.Sunday)
+            while (date.DayOfWeek == DayOfWeek.Sunday || MisriCalendar.IsRamadan(date))
             {
                 date = date.AddDays(1);
             }
             return date;
         }
+
+        /// <summary>A date guaranteed to fall within Ramadan, for tests of the Ramadan rejection rule.</summary>
+        private static DateOnly ADateInRamadan() => new DateOnly(2027, 2, 15);
 
         [Fact]
         public async Task Create_ReturnsCreatedAtActionForValidServingDate()
@@ -41,6 +48,24 @@ namespace FaizMawaid.Tests.ControllerTests
             var createdResult = Assert.IsType<CreatedAtActionResult>(result.Result);
             Assert.Equal(created, createdResult.Value);
             auditRepo.Verify(r => r.AddAsync(It.IsAny<AuditLog>()), Times.Once);
+        }
+
+        [Fact]
+        public async Task Create_RejectsDateWithinRamadan()
+        {
+            var mealPlanRepo = new Mock<IMealPlanRepository>();
+            var nonServingRepo = new Mock<INonServingDayRepository>();
+            var settingsRepo = new Mock<IAppSettingsRepository>();
+            var auditRepo = new Mock<IAuditLogRepository>();
+            var date = ADateInRamadan();
+            var request = new CreateMealPlanRequest { MealDate = date, MealDescription = "Rice and dal.", CreatedByUserId = 1 };
+            var controller = new MealPlansController(mealPlanRepo.Object, nonServingRepo.Object, settingsRepo.Object, auditRepo.Object);
+
+            var result = await controller.Create(request);
+
+            var badRequest = Assert.IsType<BadRequestObjectResult>(result.Result);
+            Assert.Contains("Ramadan", badRequest.Value!.ToString());
+            mealPlanRepo.Verify(r => r.CreateAsync(It.IsAny<CreateMealPlanRequest>()), Times.Never);
         }
 
         [Fact]

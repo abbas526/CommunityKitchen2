@@ -495,6 +495,15 @@ textarea.form-control {
 .ck-template-chip:active {
   cursor: grabbing;
 }
+.ck-misri-caption {
+  color: var(--ck-primary-dark);
+  font-weight: 500;
+}
+.ck-cal-misri {
+  font-size: 0.72rem;
+  color: var(--ck-primary-dark);
+  opacity: 0.85;
+}
 .ck-loading {
   text-align: center;
   padding: 2rem;

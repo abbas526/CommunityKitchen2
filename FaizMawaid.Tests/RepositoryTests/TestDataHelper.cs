@@ -54,7 +54,7 @@ namespace FaizMawaid.Tests.RepositoryTests
             return "UT_" + Guid.NewGuid().ToString("N")[..10];
         }
 
-        public static async Task<RegisterFamilyResponse> CreateFamilyAsync(IDbConnectionFactory factory, byte thaaliSizeId)
+        public static async Task<RegisterFamilyResponse> CreateFamilyAsync(IDbConnectionFactory factory, byte thaaliSizeId, byte? areaId = null)
         {
             var repo = new FamilyRepository(factory);
             var email = $"ut_family_{Guid.NewGuid():N}@unittest.local";
@@ -66,9 +66,23 @@ namespace FaizMawaid.Tests.RepositoryTests
                 FullName = "Unit Test Family Head",
                 Phone = null,
                 Address = "123 Unit Test Street",
+                AreaId = areaId,
                 NumberOfMembers = 4,
                 ThaaliSizeId = thaaliSizeId
             });
+        }
+
+        public static async Task<byte> CreateAreaAsync(IDbConnectionFactory factory)
+        {
+            var repo = new AreaRepository(factory);
+            var name = "UT_" + Guid.NewGuid().ToString("N")[..10];
+            return await repo.CreateAsync(new CreateAreaRequest { Name = name, SortOrder = 99 });
+        }
+
+        public static async Task DeleteAreaAsync(IDbConnectionFactory factory, byte id)
+        {
+            using var connection = factory.CreateConnection();
+            await connection.ExecuteAsync("DELETE FROM Areas WHERE Id = @Id;", new { Id = id });
         }
 
         /// <summary>Deletes a family and everything that hangs off it, in FK-safe (child-first) order.</summary>

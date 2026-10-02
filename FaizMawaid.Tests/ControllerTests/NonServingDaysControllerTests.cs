@@ -2,6 +2,7 @@ using FaizMawaid.Controllers;
 using FaizMawaid.Models;
 using FaizMawaid.Models.Dtos;
 using FaizMawaid.Repositories.Interfaces;
+using FaizMawaid.Utils;
 using Microsoft.AspNetCore.Mvc;
 using Moq;
 using Xunit;
@@ -10,10 +11,13 @@ namespace FaizMawaid.Tests.ControllerTests
 {
     public class NonServingDaysControllerTests
     {
+        /// <summary>A date that passes both the Sunday and Ramadan serving-day rules -- so tests
+        /// that are just exercising something else don't flake if "30 days from today" happens to
+        /// land in Ramadan for whatever year the tests run in.</summary>
         private static DateOnly NextNonSunday(int daysAhead = 30)
         {
             var date = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(daysAhead));
-            while (date.DayOfWeek == DayOfWeek.Sunday)
+            while (date.DayOfWeek == DayOfWeek.Sunday || MisriCalendar.IsRamadan(date))
             {
                 date = date.AddDays(1);
             }
@@ -53,6 +57,26 @@ namespace FaizMawaid.Tests.ControllerTests
 
             Assert.IsType<CreatedAtActionResult>(result);
             auditRepo.Verify(r => r.AddAsync(It.IsAny<AuditLog>()), Times.Once);
+        }
+
+        [Fact]
+        public async Task Create_RejectsDateWithinRamadan()
+        {
+            var repo = new Mock<INonServingDayRepository>();
+            var auditRepo = new Mock<IAuditLogRepository>();
+            var request = new CreateNonServingDayRequest
+            {
+                TheDate = new DateOnly(2027, 2, 15),
+                Reason = "Festival",
+                CreatedByUserId = 1
+            };
+            var controller = new NonServingDaysController(repo.Object, auditRepo.Object);
+
+            var result = await controller.Create(request);
+
+            var badRequest = Assert.IsType<BadRequestObjectResult>(result);
+            Assert.Contains("Ramadan", badRequest.Value!.ToString());
+            repo.Verify(r => r.CreateAsync(It.IsAny<CreateNonServingDayRequest>()), Times.Never);
         }
 
         [Fact]
