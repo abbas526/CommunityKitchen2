@@ -9,7 +9,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700&display=swap" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
-  <link href="../css/site.css?v=20260927b" rel="stylesheet">
+  <link href="../css/site.css?v=20261002d" rel="stylesheet">
 </head>
 <body>
   <div id="ckNavbar"></div>
@@ -203,7 +203,7 @@
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <script src="../js/site.js?v=20260927b"></script>
+  <script src="../js/site.js?v=20261002d"></script>
   <script>
     $(function () {
       var session = CK.session.requireAdmin();
@@ -459,6 +459,7 @@
         { key: "phone", label: "Phone", width: 16 },
         { key: "sabilNumber", label: "Sabil Number", width: 16 },
         { key: "address", label: "Address", width: 30 },
+        { key: "areaName", label: "Area", width: 24 },
         { key: "numberOfMembers", label: "Number of Members", width: 14 },
         { key: "thaaliSizeName", label: "Thaali Size", width: 14 },
         { key: "password", label: "Password", width: 16 }
@@ -489,8 +490,8 @@
         var size1 = sizeNames[0] || "Medium";
         var size2 = sizeNames[1] || size1;
         var exampleRows = [
-          { fullName: "Fatema Rangwala", email: "fatema.rangwala@example.com", phone: "9821012345", sabilNumber: "10234567", address: "12 Sabil Street, Mumbai", numberOfMembers: 4, thaaliSizeName: size1, password: suggestPassword("Fatema Rangwala", "10234567") },
-          { fullName: "Hussain Bhagat", email: "hussain.bhagat@example.com", phone: "9821098765", sabilNumber: "10298765", address: "45 Kitchen Lane, Mumbai", numberOfMembers: 2, thaaliSizeName: size2, password: suggestPassword("Hussain Bhagat", "10298765") }
+          { fullName: "Fatema Rangwala", email: "fatema.rangwala@example.com", phone: "9821012345", sabilNumber: "10234567", address: "12 Sabil Street, Mumbai", areaName: "Nesbit Road", numberOfMembers: 4, thaaliSizeName: size1, password: suggestPassword("Fatema Rangwala", "10234567") },
+          { fullName: "Hussain Bhagat", email: "hussain.bhagat@example.com", phone: "9821098765", sabilNumber: "10298765", address: "45 Kitchen Lane, Mumbai", areaName: "Dockyard Road", numberOfMembers: 2, thaaliSizeName: size2, password: suggestPassword("Hussain Bhagat", "10298765") }
         ];
         CK.excel.downloadTemplate(
           "family-bulk-import-template.xlsx",
@@ -501,6 +502,7 @@
             "How to fill this in:",
             "- Full Name, Email, Sabil Number, and Password are required for every row.",
             "- Thaali Size must exactly match one of the sizes defined in this system: " + (sizeNames.length > 0 ? sizeNames.join(", ") : "(none defined yet -- add sizes first, under Thaali Sizes)") + ".",
+            "- Area is optional -- leave it blank for families who pick their thaali up from the kitchen. If filled in, it must exactly match one of the Area names defined in this system (Kitchen Setup > Areas); the system looks up the matching Area for you.",
             "- Number of Members is optional -- it's only used to help judge Thaali size, this system doesn't track who those members are.",
             "- Every imported family is created already Approved and active -- no separate approval step needed.",
             "",
@@ -535,6 +537,7 @@
             var thaaliSizeName = String(row.thaaliSizeName || "").trim();
             var phone = String(row.phone || "").trim();
             var address = String(row.address || "").trim();
+            var areaName = String(row.areaName || "").trim();
             var membersRaw = row.numberOfMembers;
             var numberOfMembers = (membersRaw !== "" && membersRaw !== undefined && !isNaN(parseInt(membersRaw, 10))) ? parseInt(membersRaw, 10) : null;
 
@@ -549,7 +552,7 @@
             } else {
               parsedFamilyRows.push({
                 fullName: fullName, email: email, phone: phone || null, sabilNumber: sabilNumber,
-                address: address || null, numberOfMembers: numberOfMembers, thaaliSizeName: thaaliSizeName, password: password
+                address: address || null, areaName: areaName || null, numberOfMembers: numberOfMembers, thaaliSizeName: thaaliSizeName, password: password
               });
               $body.append('<tr><td>' + CK.esc(fullName) + '</td><td>' + CK.esc(email) + '</td><td>' + CK.esc(sabilNumber) + '</td><td>' + CK.esc(thaaliSizeName) + '</td><td class="text-success ck-small"><i class="bi bi-check-lg"></i></td></tr>');
             }

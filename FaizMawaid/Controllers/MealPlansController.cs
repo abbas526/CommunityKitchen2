@@ -1,6 +1,7 @@
 using FaizMawaid.Models;
 using FaizMawaid.Models.Dtos;
 using FaizMawaid.Repositories.Interfaces;
+using FaizMawaid.Utils;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -200,6 +201,11 @@ namespace FaizMawaid.Controllers
             if (date.DayOfWeek == DayOfWeek.Sunday)
             {
                 return "The kitchen doesn't serve food on Sundays.";
+            }
+
+            if (MisriCalendar.IsRamadan(date))
+            {
+                return "The kitchen doesn't serve food during the month of Ramadan.";
             }
 
             if (await _nonServingDayRepository.IsNonServingDayAsync(date))

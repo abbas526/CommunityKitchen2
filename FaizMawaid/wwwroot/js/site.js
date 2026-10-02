@@ -17,6 +17,8 @@
      - CK.nav         renders the shared top navbar on every page
      - CK.toast       small Bootstrap toast notifications
      - CK.fmt / CK.esc / CK.today  small formatting + escaping helpers
+     - CK.misri       Dawoodi Bohra Misri calendar, display-only (CK.fmt.date/
+                       dateShort already append it automatically everywhere)
    ========================================================================== */
 (function (window, $) {
   "use strict";
@@ -278,6 +280,128 @@
       .replace(/'/g, "&#39;");
   };
 
+  // ---------------------------------------------------------------------
+  // Misri (Dawoodi Bohra Hijri) calendar -- DISPLAY ONLY, never stored.
+  // This is a fixed, tabular calendar, NOT the generic moon-sighting-based
+  // Hijri calendar (which can land a day or two off from this one) -- so it
+  // converts deterministically from any Gregorian date with pure integer
+  // arithmetic, no lookup table and no network call. Leap ("Kabisa") years
+  // are the 11 years in each 30-year cycle at (year mod 30) in
+  // {2,5,8,10,13,16,19,21,24,27,29} -- this is the "Ismaili Tayyebi" tabular
+  // scheme, the Dawoodi Bohra da'wat's own historical name, confirmed
+  // against an independent calendar reference, not just self-consistency.
+  // Epoch 1,948,085 (Julian Day Number of 1 Moharram, Hijri year 0) and the
+  // exact (non-approximated) day-of-year/month walk below were verified
+  // against TWO independent real-world anchors: the Dawat's own published
+  // Ashara Mubaraka date (10th Moharram-ul-Haram 1447H = Ashura = Saturday
+  // 5 July 2025), and a reading off a physical printed Misri calendar
+  // (2 Oct 2026 = 21st Rabi al-Aakhar 1448H). An earlier version of this
+  // code used epoch 1,948,084 plus a floating-point day-of-year
+  // approximation formula that matched the first anchor only by two
+  // compensating rounding errors, and was off by one day for dates further
+  // from the epoch (caught via the second anchor) -- see CLAUDE.md,
+  // "Misri calendar off-by-one fix" for the full story.
+  // ---------------------------------------------------------------------
+  var MISRI_MONTHS = [
+    "Moharram ul Haram", "Safar ul Muzaffar", "Rabi al-Awwal", "Rabi al-Aakhar",
+    "Jumada al-Ula", "Jumada al-Ukhra", "Rajab al-Asab", "Shaban al-Karim",
+    "Ramadan al-Moazzam", "Shawwal al-Mukarram", "Zilqadah al-Haram", "Zilhaj al-Haram"
+  ];
+  var MISRI_MONTHS_SHORT = [
+    "Moharram", "Safar", "Rabi I", "Rabi II", "Jumada I", "Jumada II",
+    "Rajab", "Shaban", "Ramadan", "Shawwal", "Zilqadah", "Zilhaj"
+  ];
+
+  /** Gregorian (y, m, d) -> Julian Day Number. Standard proleptic-Gregorian JDN formula
+   * (Fliegel & Van Flandern) -- integer-only, no float rounding risk. */
+  function misriGregorianToJdn(y, m, d) {
+    var a = Math.floor((14 - m) / 12);
+    var yy = y + 4800 - a;
+    var mm = m + 12 * a - 3;
+    return d + Math.floor((153 * mm + 2) / 5) + 365 * yy + Math.floor(yy / 4) - Math.floor(yy / 100) + Math.floor(yy / 400) - 32045;
+  }
+
+  // The 11 leap ("Kabisa") year-positions within each 30-year cycle (0-indexed,
+  // i.e. this is just "year mod 30"). A Kabisa year's 12th month (Zilhaj) gets
+  // a 30th day; every other month always alternates 30 (odd) / 29 (even).
+  var MISRI_KABISA_POSITIONS = { 2: true, 5: true, 8: true, 10: true, 13: true, 16: true, 19: true, 21: true, 24: true, 27: true, 29: true };
+  var MISRI_EPOCH_JDN = 1948085;
+
+  /** Julian Day Number -> Misri {day, month (1-12), year}. Exact integer
+   * arithmetic throughout (no floating-point day-count approximation) --
+   * walks whole elapsed years, then whole elapsed months, by their exact
+   * fixed lengths, so it can't drift by a day the way an averaged-year-length
+   * formula can. */
+  function misriFromJdn(jdn) {
+    var d = jdn - MISRI_EPOCH_JDN; // 0-indexed day count since 1 Moharram, Hijri year 0
+    var cyc = Math.floor(d / 10631);
+    var remInCycle = d - cyc * 10631; // 0-indexed day within this 30-year cycle (0..10630)
+
+    var j = 0;
+    var daysBeforeYear = 0;
+    while (true) {
+      var yearLen = MISRI_KABISA_POSITIONS[j] ? 355 : 354;
+      if (remInCycle < daysBeforeYear + yearLen) { break; }
+      daysBeforeYear += yearLen;
+      j += 1;
+    }
+    var dayOfYear = remInCycle - daysBeforeYear; // 0-indexed day within the Hijri year
+    var year = 30 * cyc + j;
+
+    var isLeapYear = !!MISRI_KABISA_POSITIONS[j];
+    var m = 0;
+    var remainingDay = dayOfYear;
+    while (true) {
+      var monthLen = (m % 2 === 0) ? 30 : (m === 11 && isLeapYear ? 30 : 29);
+      if (remainingDay < monthLen) { break; }
+      remainingDay -= monthLen;
+      m += 1;
+    }
+
+    return { day: remainingDay + 1, month: m + 1, year: year };
+  }
+
+  CK.misri = {
+    /** "2026-09-23" (date-only or full ISO datetime) -> {day, month, year}, or null if empty/unparseable. */
+    fromIso: function (isoDate) {
+      if (!isoDate) { return null; }
+      var parts = String(isoDate).split("T")[0].split("-");
+      if (parts.length !== 3) { return null; }
+      var y = parseInt(parts[0], 10), m = parseInt(parts[1], 10), d = parseInt(parts[2], 10);
+      if (!y || !m || !d) { return null; }
+      return misriFromJdn(misriGregorianToJdn(y, m, d));
+    },
+    /** "2026-09-23" -> "28 Rabi al-Awwal 1448H". */
+    display: function (isoDate) {
+      var r = CK.misri.fromIso(isoDate);
+      if (!r) { return ""; }
+      return r.day + " " + MISRI_MONTHS[r.month - 1] + " " + r.year + "H";
+    },
+    /** "2026-09-23" -> "28 Rabi I" -- compact form for tight spaces (e.g. the meal calendar grid), no honorific/year. */
+    shortDisplay: function (isoDate) {
+      var r = CK.misri.fromIso(isoDate);
+      if (!r) { return ""; }
+      return r.day + " " + MISRI_MONTHS_SHORT[r.month - 1];
+    },
+    /** True if an ISO date falls within the Hijri month of Ramadan, in any year -- the kitchen
+     * doesn't serve food during Ramadan, the same kind of fixed rule as the Sunday closure. */
+    isRamadan: function (isoDate) {
+      var r = CK.misri.fromIso(isoDate);
+      return !!r && r.month === 9;
+    },
+    /** Wires a date <input> to a caption element that live-updates with its Misri-date
+     * equivalent as the value changes. Call once per page, after both elements exist. */
+    attachLiveCaption: function ($input, $caption) {
+      if (!$input || !$input.length || !$caption || !$caption.length) { return; }
+      function update() {
+        var v = $input.val();
+        $caption.text(v ? ("\u21B3 " + CK.misri.display(v)) : "");
+      }
+      $input.on("change input", update);
+      update();
+    }
+  };
+
   var WEEKDAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   var MONTH = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -289,14 +413,14 @@
       if (parts.length !== 3) { return isoDate; }
       var y = parseInt(parts[0], 10), m = parseInt(parts[1], 10), d = parseInt(parts[2], 10);
       var dt = new Date(y, m - 1, d);
-      return WEEKDAY[dt.getDay()] + ", " + d + " " + MONTH[m - 1] + " " + y;
+      return WEEKDAY[dt.getDay()] + ", " + d + " " + MONTH[m - 1] + " " + y + " (" + CK.misri.display(isoDate) + ")";
     },
     dateShort: function (isoDate) {
       if (!isoDate) { return ""; }
       var parts = String(isoDate).split("T")[0].split("-");
       if (parts.length !== 3) { return isoDate; }
       var y = parseInt(parts[0], 10), m = parseInt(parts[1], 10), d = parseInt(parts[2], 10);
-      return d + " " + MONTH[m - 1] + " " + y;
+      return d + " " + MONTH[m - 1] + " " + y + " (" + CK.misri.display(isoDate) + ")";
     },
     dateTime: function (isoDateTime) {
       if (!isoDateTime) { return ""; }
@@ -426,6 +550,8 @@
             '<a class="nav-link dropdown-toggle' + (active === "reports" ? " active" : "") + '" href="#" role="button" data-bs-toggle="dropdown">Reports</a>' +
             '<ul class="dropdown-menu">' +
               '<li><a class="dropdown-item" href="' + root + 'admin/reports.html"><i class="bi bi-bar-chart me-2"></i>Daily Thaali Count</a></li>' +
+              '<li><a class="dropdown-item" href="' + root + 'admin/monthly-thaali-distributed.html"><i class="bi bi-calendar3-range me-2"></i>Monthly Thaali Distributed (Area-wise)</a></li>' +
+              '<li><a class="dropdown-item" href="' + root + 'admin/monthly-thaali-cancelled.html"><i class="bi bi-calendar-x me-2"></i>Monthly Thaali Cancelled (Area-wise)</a></li>' +
               '<li><a class="dropdown-item" href="' + root + 'admin/audit-log.html"><i class="bi bi-clock-history me-2"></i>Audit Log</a></li>' +
             '</ul>' +
           '</li>';

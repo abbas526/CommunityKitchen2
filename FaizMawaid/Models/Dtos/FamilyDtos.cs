@@ -80,6 +80,8 @@ namespace FaizMawaid.Models.Dtos
         /// <summary>Plaintext, over HTTPS -- hashed server-side before anything is persisted. Never stored as-is.</summary>
         public string Password { get; set; } = string.Empty;
         public string? Address { get; set; }
+        /// <summary>Optional. Matched against the Areas master table by name (case-insensitive); a blank value leaves the family with no Area (self-pickup).</summary>
+        public string? AreaName { get; set; }
         public byte? NumberOfMembers { get; set; }
         public string ThaaliSizeName { get; set; } = string.Empty;
     }

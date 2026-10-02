@@ -46,4 +46,58 @@ namespace FaizMawaid.Models.Dtos
         public int TotalCancelledInstances { get; set; }
         public List<CancelledThaaliDayGroup> Days { get; set; } = new();
     }
+
+    // ---------------------------------------------------------------------
+    // Month-wise / Area-wise reports (added 2026-10-02)
+    // ---------------------------------------------------------------------
+
+    /// <summary>Maps an Area's byte Id (null = no Area assigned) to the same string key used as a
+    /// JSON object property name in MonthlyAreaCountRow.CountsByArea, so repository code and the
+    /// client both address a count by the same key without juggling two different shapes.</summary>
+    public static class ReportAreaKey
+    {
+        public const string Unassigned = "unassigned";
+        public static string For(byte? areaId) => areaId.HasValue ? areaId.Value.ToString() : Unassigned;
+    }
+
+    /// <summary>One column header in an Area-wise report pivot table -- every Area the Admin has
+    /// defined (in SortOrder), plus a trailing "Unassigned / No Area" column for families with no
+    /// AreaId set. AreaId is null only for that trailing column; match it to a row's count via
+    /// ReportAreaKey.For(AreaId).</summary>
+    public class ReportAreaColumn
+    {
+        public byte? AreaId { get; set; }
+        public string AreaName { get; set; } = string.Empty;
+    }
+
+    /// <summary>One row (one calendar month) of an Area-wise monthly report.</summary>
+    public class MonthlyAreaCountRow
+    {
+        public int Year { get; set; }
+        public int Month { get; set; }
+        /// <summary>Ready-to-display label, e.g. "January 2026".</summary>
+        public string MonthLabel { get; set; } = string.Empty;
+        /// <summary>Key = ReportAreaKey.For(column.AreaId) for every column in the response's Areas list -- always present (zero-filled) even for a month/Area with nothing to report.</summary>
+        public Dictionary<string, int> CountsByArea { get; set; } = new();
+        public int Total { get; set; }
+    }
+
+    /// <summary>
+    /// Shared shape for both Area-wise monthly reports:
+    /// - Thaalis distributed (GET /api/reports/monthly-thaali-distributed) -- how many thaalis
+    ///   actually went out, per month, per Area, counting every serving day in the range.
+    /// - Thaalis cancelled (GET /api/reports/monthly-thaali-cancelled) -- how many thaali
+    ///   cancellations landed on a day in the range, per month, per Area (a family cancelled for
+    ///   5 days counts 5 times, matching how CancelledThaaliRangeResponse already counts).
+    /// A pivot table: one row per calendar month spanned by [FromDate, ToDate], one column per
+    /// Area (+ a trailing "Unassigned" column).
+    /// </summary>
+    public class MonthlyAreaReportResponse
+    {
+        public DateOnly FromDate { get; set; }
+        public DateOnly ToDate { get; set; }
+        public List<ReportAreaColumn> Areas { get; set; } = new();
+        public List<MonthlyAreaCountRow> Months { get; set; } = new();
+        public int GrandTotal { get; set; }
+    }
 }

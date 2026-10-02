@@ -280,13 +280,14 @@ namespace FaizMawaid.Repositories
                 }, transaction);
 
                 const string insertFamilySql = @"
-                    INSERT INTO Families (FamilyHeadUserId, Address, NumberOfMembers, ThaaliSizeId, RegistrationStatus, ApprovedByAdminUserId, ApprovedAt, IsActive)
-                    VALUES (@FamilyHeadUserId, @Address, @NumberOfMembers, @ThaaliSizeId, 'Approved', @ApprovedByAdminUserId, UTC_TIMESTAMP(), 1);
+                    INSERT INTO Families (FamilyHeadUserId, Address, AreaId, NumberOfMembers, ThaaliSizeId, RegistrationStatus, ApprovedByAdminUserId, ApprovedAt, IsActive)
+                    VALUES (@FamilyHeadUserId, @Address, @AreaId, @NumberOfMembers, @ThaaliSizeId, 'Approved', @ApprovedByAdminUserId, UTC_TIMESTAMP(), 1);
                     SELECT LAST_INSERT_ID();";
                 var familyId = await connection.ExecuteScalarAsync<ulong>(insertFamilySql, new
                 {
                     FamilyHeadUserId = userId,
                     request.Address,
+                    request.AreaId,
                     request.NumberOfMembers,
                     request.ThaaliSizeId,
                     ApprovedByAdminUserId = approvedByAdminUserId

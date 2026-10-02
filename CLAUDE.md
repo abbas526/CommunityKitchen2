@@ -805,3 +805,318 @@ this in production:**
 - Nothing in this pass was compiled (same constraint as always) -- `node --check` on
   every touched inline `<script>`, div-balance and brace/paren-balance checks on every
   touched file. None of it has been exercised in a real browser yet this round.
+
+## Area-wise Monthly Reports (2026-10-02)
+
+Two new reports, both Admin-only, added to the existing `ReportsController`/`IReportRepository`/
+`ReportRepository` layer (no new repository class) alongside the pre-existing Daily Thaali Count
+and Cancelled Thaalis reports:
+
+**1. Monthly Thaali Distributed (Area-wise).** `GET /api/reports/monthly-thaali-distributed?from=&to=`
+-- a pivot table (one row per calendar month in the range, one column per Area + a trailing
+"Unassigned / No Area" column) of how many thaalis actually went out: every approved/active family
+(sub-families included automatically, same filter `RegistrationStatus = 'Approved' AND IsActive = 1`
+as `GetDailyThaaliCountAsync`) minus anyone with an active cancellation, summed across every serving
+day (not Sunday, not a `NonServingDays` row) in the range.
+
+**2. Monthly Thaali Cancelled (Area-wise).** `GET /api/reports/monthly-thaali-cancelled?from=&to=`
+-- same pivot shape, counting active `ThaaliCancellations` instead: a family cancelled for 5 days in
+the window counts 5 times (matches how the existing `CancelledThaaliRangeResponse.TotalCancelledInstances`
+already counts -- each day not prepared is one less thaali, regardless of whether that day happens to
+be a serving day).
+
+**Shared response shape**: new `MonthlyAreaReportResponse` (`Models/Dtos/ReportDtos.cs`) --
+`FromDate`/`ToDate`, `Areas` (`List<ReportAreaColumn>`, one per `Areas` table row in `SortOrder` plus
+a trailing `AreaId = null` "Unassigned / No Area" column), `Months` (`List<MonthlyAreaCountRow>`, one
+per calendar month spanned by the range, each pre-seeded with a zero count for every column so the
+client always gets a complete grid), `GrandTotal`. A row's `CountsByArea` is a `Dictionary<string,int>`
+keyed by `ReportAreaKey.For(areaId)` (the area's id as a string, or the constant `"unassigned"`) --
+both the repository and the two new wwwroot pages use that same key function so neither side has to
+special-case the null-Area column.
+
+**Defaults** (functional requirement: "by default show the report for the current year from Jan to
+current date"): when `from`/`to` are omitted, `ReportsController` defaults to 1 January of the
+current (server UTC) year through today -- enforced server-side in both new actions via a shared
+private `ResolveMonthlyReportRange` helper, and mirrored client-side (`$("#fromDate").val(new
+Date().getFullYear() + "-01-01")`) so the page's date inputs show the same default before the first
+request even goes out. Range is capped at ~3 years (`MaxMonthlyReportDays = 1096`) as a sanity check
+against an unbounded aggregation -- generous compared to the existing 92-day cap on
+`cancelled-thaalis`, since this report is aggregated to month level rather than listing every day.
+
+**New UI pages**: `admin/monthly-thaali-distributed.html` and `admin/monthly-thaali-cancelled.html`
+(same card/table look as the rest of `wwwroot`, a `.table-responsive` pivot table with a Grand Total
+footer row). Both call `CK.nav.render("admin", "reports")` like `admin/reports.html` already does.
+
+**Nav menu**: the existing "Reports" dropdown (`CK.nav.render` in `site.js`) already had "Daily
+Thaali Count" and "Audit Log" -- added the two new pages as additional items in that same dropdown
+(between the two), per the request to "create a separate menu for Reports" (it already existed; this
+just adds to it rather than building a new one).
+
+**Cache-busting version bump**: per the stale-browser-cache lesson from 2026-09-26, touching
+`site.js` means every page's `?v=...` query string on `site.js`/`site.css` has to move forward
+together or some browsers keep serving old `site.js` with no "Monthly Thaali Distributed"/"Monthly
+Thaali Cancelled" links in the Reports dropdown. Bumped all 22 existing HTML pages (and both new
+ones) from `?v=20260927b` to `?v=20261002a` in the same pass.
+
+**Tests**: `ReportsControllerTests` (Moq-based) -- both new actions return the repository's response
+via `Ok`, both default `from`/`to` correctly when omitted, both reject an end-before-start range and
+(for Distributed) an over-3-years range. `ReportRepositoryTests` (real-DB integration tests, same
+pattern as the existing `GetDailyThaaliCountAsync` test) -- a new `TestDataHelper.CreateAreaAsync`/
+`DeleteAreaAsync` pair, and `CreateFamilyAsync` gained an optional trailing `areaId` parameter
+(backward compatible, existing call sites unaffected) -- confirms an approved/active family's thaali
+shows up under its own Area column on a serving day, and that a one-day cancellation shows up as 1
+under its family's Area column in the cancelled-by-Area report.
+
+**Not done / out of scope for this pass**: no CSV/Excel export on these two new reports (the
+existing bulk-upload `CK.excel` helper isn't wired to them); no drill-down from a pivot cell back to
+the underlying family list (unlike `cancelled-thaalis`, which already lists families per day); no
+dashboard tile added for either new report (reachable only via the Reports nav dropdown for now).
+As with every other change in this project's history, **nothing in this pass was compiled** -- no
+`dotnet` CLI in this build environment. Every touched `.cs` file was brace/paren/bracket-balance
+checked and every touched inline `<script>` block was syntax-checked with `node --check`, but
+**run `dotnet build`/`dotnet test` in Visual Studio to confirm** before relying on this, especially
+the `TestDataHelper.CreateFamilyAsync` signature change (new optional parameter -- should be source
+compatible, but confirm the existing call sites in other test files still compile).
+
+## Misri (Dawoodi Bohra Hijri) Calendar display (2026-10-02)
+
+User's idea: show the Dawoodi Bohra Misri/Hijri date alongside the English (Gregorian) date
+everywhere in the app -- "a lot of things depend on Hijri date... people planning meals prefer
+to look at Hijri date." DB keeps storing/querying everything in Gregorian; Misri is **display
+only**, computed on the fly, never written to any table. A plan was presented and confirmed
+(scope: everywhere, via the shared formatter; month-name spelling: the standard honorific set)
+before any code was written.
+
+**Why no DB table / PDF / API, after researching the actual calendar system.** The Misri
+calendar is NOT the generic moon-sighting-based Hijri calendar used in most countries (which
+varies by country and can't be computed in advance) -- it's a fixed, tabular calendar: 12
+months alternating 30/29 days, with the 12th month (Zilhaj) getting a bonus day in a "Kabisa"
+(leap) year on a fixed 30-year/11-leap-year cycle. Because it's tabular, it converts
+deterministically from any Gregorian date with pure arithmetic -- confirmed by cross-referencing
+several independent open-source Bohra date-converter projects, which all converge on the same
+rule set and the same epoch-based Julian-Day-Number algorithm. This made a DB table (needs
+populating/maintaining) or a 10-year PDF (limited horizon, error-prone to extract, and the PDF
+itself is almost certainly generated from this exact formula anyway) both unnecessary --
+and ruled out a live external API, since generic "Hijri date" APIs use Umm al-Qura or
+sighting-based Hijri, a *different* calendar that can land a day or two off from Misri, which
+would have defeated the entire point of the request.
+
+**Algorithm (verified, not assumed, before shipping).** Gregorian -> Julian Day Number via the
+standard proleptic-Gregorian JDN formula (Fliegel & Van Flandern, integer-only). JDN -> Misri
+date via the well-known 30-year/10631-day tabular Hijri cycle (Kabisa years: `year mod 30` in
+{2,5,8,10,13,16,19,21,24,27,29}) from the Misri/Fatimid astronomical epoch, Julian Day
+**1,948,084**. This specific epoch constant was verified against a real, independently-published
+anchor date -- the Dawat's own published Ashara Mubaraka dates for 1447H (10th Moharram-ul-Haram
+1447H = Ashura = Saturday 5 July 2025) -- the algorithm reproduces that exactly; a second
+candidate epoch (1,948,085, the "civil" variant) was tried first and was off by one day, so it
+was discarded. Also spot-checked: 400+ consecutive days all land in valid day(1-30)/month(1-12)
+range, and a 20-year walk (2020-2040) confirms every month's actual length matches the
+documented Kabisa rule exactly (odd months always 30, even months always 29, month 12 is 30
+only in a Kabisa year) -- not just a couple of hand-picked dates.
+
+**Two copies of the same algorithm, by design, not duplication-by-accident:**
+- **`wwwroot/js/site.js`** -- `CK.misri` (new namespace: `fromIso`, `display` -- "28 Rabi
+  al-Awwal 1448H" --, `shortDisplay` -- "28 Rabi I", no honorific/year, for tight spaces --,
+  and `attachLiveCaption($input, $caption)` for wiring a date `<input>` to a live-updating Misri
+  caption). **This is the copy the UI actually runs** -- client-side, no extra server round-trip
+  per date, since it has to run for every single date already on screen across the app.
+- **`FaizMawaid/Utils/MisriCalendar.cs`** -- `MisriCalendar.ToMisriDate(DateOnly)` ->
+  `MisriDate` (`Day`/`Month`/`Year`, plus `ToString()`/`ToShortString()`). A plain static class,
+  no DI/interface (pure function, nothing to mock, nothing currently calls it from a
+  controller) -- it exists purely so the *exact same* algorithm is independently unit-tested
+  server-side too, as a safety net, and so a future server-rendered export (a PDF/Excel report
+  with Misri dates, say) has a ready-made, already-verified conversion to call. Both copies use
+  identical constants and were cross-checked to produce identical output for the same input
+  dates before this shipped.
+
+**Wired into the shared formatter, not 24 separate pages.** `CK.fmt.date`/`CK.fmt.dateShort` in
+`site.js` now append the Misri date automatically (`CK.fmt.dateTime` already calls `dateShort`
+internally, so it picked this up for free too) -- since virtually every page already funnels its
+displayed dates through these two functions, this one change surfaces the Misri date on Meal
+Plans, Non-Serving Days, Thaali Cancellations (and the Cancelled Thaalis report), Address/Size
+Change Requests, Audit Log, and both new Monthly reports, with no per-page edits needed for
+display-only dates.
+
+**Live caption under the three date pickers that matter most for meal planning**, since a
+native `<input type="date">` can't show Hijri itself: `admin/meal-plans.html`'s "Plan a Meal"
+date field, `family/dashboard.html`'s Cancel Thaali "From"/"To" fields, and
+`admin/non-serving-days.html`'s date field -- each gained a `↳ 28 Ramadan al-Moazzam 1447H`-style
+line underneath that updates live via `CK.misri.attachLiveCaption`, new `.ck-misri-caption` CSS
+in `site.css`.
+
+**`admin/meal-calendar.html`** -- the single screen the user specifically called out for meal
+planning -- gained a small Misri day/month label (`CK.misri.shortDisplay`, e.g. "28 Ramadan") in
+every day cell under the day-of-month number, with the full display string as a hover tooltip;
+new `.ck-cal-misri` CSS. This screen builds its day cells with custom markup rather than going
+through `CK.fmt.date`, so it needed its own explicit addition rather than inheriting the shared
+formatter's change.
+
+**Cache-busting version bump** (per the project's own established "stale-browser-cache" lesson
+from 2026-09-26): bumped all 24 HTML pages from `?v=20261002a` to `?v=20261002b` in the same
+pass, since `site.js`/`site.css` both changed.
+
+**Tests**: `FaizMawaid.Tests/UtilsTests/MisriCalendarTests.cs` (new, xUnit, no DB/mocks needed --
+pure math) -- the Ashura anchor date, two adjacent-day spot-checks, `ToString()`/
+`ToShortString()` formatting, a 20-year month-length walk checked against the documented Kabisa
+rule, and a 30-year valid-range walk. No controller/repository changes, so no new
+ControllerTests/RepositoryTests needed for this feature.
+
+**Deliberately out of scope for this pass** (flagged, not oversights): no Hijri-native date
+*picker* widget -- a user still picks a Gregorian date and sees the Misri equivalent, not the
+reverse; the two new Monthly Area-wise reports keep pivoting by Gregorian calendar month (a
+Hijri month doesn't align with a Gregorian month, so "Monthly" there still means Gregorian --
+only the day-level dates shown within them pick up the Misri date via the shared formatter);
+Feedback/AuditLog timestamps get the Misri date too since they already go through
+`CK.fmt.dateTime`, even though that wasn't the primary ask (meal planning was) -- low-risk,
+free side effect of the shared-formatter approach, not called out as unwanted.
+
+Nothing in this pass was compiled (same constraint as always -- no `dotnet` CLI in this build
+environment). The JS algorithm was additionally smoke-tested for real (not just syntax-checked)
+by loading the actual `site.js` into a throwaway Node script with minimal `window`/`jQuery`
+stubs and calling `CK.misri.display`/`CK.fmt.date`/`CK.fmt.dateShort`/`CK.fmt.dateTime` directly
+-- confirmed to produce the exact expected strings, including the Ashura anchor date. Every
+touched `.cs` file was brace/paren/bracket-balance checked, every touched inline `<script>`
+block was syntax-checked with `node --check`, and every touched HTML file was div-balance
+checked, but **run `dotnet build`/`dotnet test` in Visual Studio to confirm** before relying on
+the C# side, and click through Meal Plans / Meal Calendar / Non-Serving Days / Cancel Thaali in
+a real browser to see the Misri dates render correctly end to end -- this has not yet been
+exercised in a real browser.
+
+## Misri calendar off-by-one fix (2026-10-02, later the same day)
+
+Shortly after the Misri Calendar feature above was implemented, the user checked a real date
+against their own physical printed Misri calendar and caught a bug: the app showed **20th Rabi
+al-Aakhar 1448H** for 2 Oct 2026; the physical calendar says **21st**. One day off.
+
+**Root cause, found by hand-deriving the correct answer and comparing step by step against the
+code's intermediate values (not by guessing a constant):** the original `misriFromJdn`/`JdnToMisri`
+used a floating-point approximation for "how many days have elapsed in the first N years of this
+30-year cycle" (`Math.floor(j * (10631/30) + 8.01/60)`), rather than exactly summing each year's
+real length (354 or 355 days). That approximation is exact for small `j` (it happened to be exact
+for `j=7`, which is why the original single Ashura anchor test passed) but **overshoots by one day
+for `j=8`** -- the exact year position for 1448H -- which under-counted the day-of-year by one and
+produced 20th instead of 21st. The originally-chosen epoch (1,948,084) was itself only "verified"
+against that one Ashura anchor, and turned out to be wrong by one day in the *other* direction --
+it had been silently compensating for the day-counting bug. Two bugs, cancelling out for exactly
+one test case, is why this passed review the first time: **a single anchor date is not enough
+validation for a cyclical calendar algorithm** -- a second, independent anchor months away is
+what actually exposed this.
+
+**Fix, verified against TWO independent real-world anchors this time, not one:**
+1. Replaced the floating-point day-of-year approximation with an **exact integer walk**: add up
+   each whole elapsed Hijri year's real length (354, or 355 if its `year mod 30` is a Kabisa
+   position) one at a time until the running total would exceed the target day -- no averaging,
+   no floating-point rounding, so it cannot drift the way the old formula could. Likewise replaced
+   the month-extraction step with an exact walk through fixed month lengths (30/29 alternating,
+   with the 12th month getting 30 in a Kabisa year) instead of the old floored-division formula.
+2. Corrected the epoch from 1,948,084 to **1,948,085** (Julian Day Number of 1 Moharram, Hijri
+   year 0) -- this is the value that, combined with the new exact-integer walk, reproduces BOTH
+   anchors correctly (see below). The two changes have to go together: each one alone, with the
+   other left as it was, reproduces only one of the two anchors.
+3. Re-confirmed the Kabisa year-position set `{2,5,8,10,13,16,19,21,24,27,29}` is correct --
+   while researching this, found it independently named as the **"Ismaili Tayyebi" tabular
+   scheme** in an outside calendar-systems reference (distinct from the generic "Kuwaiti" /
+   civil tabular Hijri scheme, which uses a different set of leap-year positions) -- "Tayyebi" is
+   literally the historical name for the Dawoodi Bohra da'wat branch, so this is a genuinely
+   independent corroboration that the leap-year rule itself was right all along; only the
+   day-counting arithmetic around it was broken.
+
+**Verified against, this time:**
+- Anchor 1 (unchanged): 10th Moharram-ul-Haram 1447H (Ashura) = Saturday 5 July 2025, per the
+  Dawat's own published Ashara Mubaraka dates.
+- Anchor 2 (new, from the user's physical calendar): 2 Oct 2026 = 21st Rabi al-Aakhar 1448H.
+- Adjacent-day checks around both anchors (e.g. 1 Oct 2026 -> 20th, 3 Oct 2026 -> 22nd).
+- A loose cross-check against the generic (moon-sighting) Hijri calendar: most public sources
+  give 1 Muharram 1448 AH as ~16 June 2026; the fixed algorithm now places it at 15 June 2026 --
+  a plausible 1-day difference between the tabular Misri calendar and a sighting-based one, not
+  a multi-day drift that would suggest a remaining bug.
+- Re-ran the full 2015-2045 day-by-day range/month-length sweep (now backed by exact integer
+  math, not an approximation, so it genuinely cannot produce an off-by-one any more, rather than
+  just "happening" to pass).
+
+**Files touched (both the live site.js copy and the C# port, kept in lockstep as before):**
+`wwwroot/js/site.js` (`misriFromJdn`, doc comment above it), `FaizMawaid/Utils/MisriCalendar.cs`
+(`JdnToMisri`, class doc comment, epoch constant), `FaizMawaid.Tests/UtilsTests/MisriCalendarTests.cs`
+(added the second anchor + its adjacent-day cases, updated the class doc comment). Cache-bust
+bumped again, `?v=20261002b` -> `?v=20261002c`, since `site.js` changed. No HTML/CSS changes needed
+for this fix -- the bug was purely in the conversion math, not the wiring.
+
+**Lesson for next time a "verify against a real anchor date" task comes up**: use at least two
+anchors that are NOT close together in time (ideally in different years and different months),
+specifically because floating-point/averaged approximations in cyclical calendar math can match
+one point by coincidence while drifting elsewhere -- exactly what happened here. Prefer exact
+integer arithmetic over an averaged/approximated formula whenever the exact rule (here: real
+fixed month lengths and a known leap-year set) is already known, since "exact by construction"
+beats "approximately right by a tuned fudge constant" for anything this unforgiving of
+off-by-one errors.
+
+## Ramadan as a permanent non-serving period (2026-10-02, later the same day)
+
+User's request, verbatim: "Make the entire month of Ramadan as a non-serving. update the system
+accordingly." Confirmed with the user up front which of two possible interpretations was wanted:
+(a) a permanent rule computed from the Hijri calendar, applying to every Ramadan past and future
+-- the same way the existing Sunday closure already works -- or (b) a one-off change that only
+affects the upcoming Ramadan (1448H, 6 Feb - 7 Mar 2027) going forward, leaving past reports as
+they were. The user picked (a), "every Ramadan, like Sunday."
+
+**Why this was a real design fork worth asking about, not just an implementation detail**: the
+app's Monthly Area-wise reports (see the "Area-wise Monthly Reports" section above) compute
+"Thaali distributed" by walking every *serving day* in the query range and counting
+approved/active, non-cancelled families -- it's a computed/inferred count, not a read of actual
+meal-plan records. Extending "serving day" to exclude Ramadan therefore retroactively changes
+what those reports show for any past Ramadan period too (e.g. Ramadan 1447H, which fell in
+Feb-Mar 2026, before today) -- exactly the same way the Sunday rule already retroactively affects
+every report, for every year, by design. The user's answer confirmed that's the desired,
+consistent behavior, not an unwanted side effect.
+
+**Implementation -- mirrors the existing Sunday rule's pattern everywhere Sunday already
+appears, rather than introducing a new, different mechanism:**
+- `FaizMawaid/Utils/MisriCalendar.cs` -- added `RamadanMonthNumber = 9` and
+  `IsRamadan(DateOnly)` (`ToMisriDate(date).Month == 9`). This is the first real caller of this
+  class from outside its own tests -- the Misri calendar work earlier today turned out to be
+  exactly the building block this needed.
+- `wwwroot/js/site.js` -- added `CK.misri.isRamadan(isoDate)`, same logic, for the client-side
+  pre-checks below.
+- `Controllers/MealPlansController.cs`, `ValidateServingDateAsync` -- added a Ramadan check
+  right after the existing Sunday check (same method used by both single meal-plan creation and
+  the bulk CSV import, so both are covered automatically). New rejection message: "The kitchen
+  doesn't serve food during the month of Ramadan."
+- `Controllers/NonServingDaysController.cs`, `Create` -- added a matching rejection for anyone
+  trying to manually add a non-serving-day row that falls inside Ramadan (mirrors the existing
+  "Sundays are already..." rejection), since -- like Sunday -- it needs no row here at all.
+- `Repositories/ReportRepository.cs` -- extended the three `isServingDay`/`IsServingDay`
+  computations (`GetDailyThaaliCountAsync`, `GetCancelledThaaliRangeAsync`,
+  `GetMonthlyThaaliDistributedByAreaAsync`) to also check `!MisriCalendar.IsRamadan(date)`,
+  alongside the existing Sunday check. Deliberately did NOT touch
+  `GetMonthlyThaaliCancelledByAreaAsync` -- that report counts one cancellation instance per
+  calendar day across a family's cancelled date range regardless of serving-day-ness, which was
+  already true before today and is an unrelated, pre-existing design choice, not something this
+  change should alter.
+- `wwwroot/admin/meal-plans.html` -- client-side pre-check (fast feedback before the server
+  round-trip) added right after the existing Sunday pre-check; the CSV-import help text updated
+  to mention Ramadan alongside Sundays.
+- `wwwroot/admin/non-serving-days.html` -- same client-side pre-check pattern, plus updated the
+  page's intro copy.
+- `wwwroot/admin/meal-calendar.html` -- the day-cell grid now treats a Ramadan day exactly like
+  a Sunday or a stored non-serving day (closed, shown in the same red "kitchen closed" styling,
+  with "Ramadan" as the reason), and the legend text was updated to mention it.
+
+**Cache-busting**: all 24 HTML pages bumped `?v=20261002c` -> `?v=20261002d` (site.js and three
+HTML pages changed).
+
+**Tests**: `MisriCalendarTests.cs` gained a 7-case theory test for `IsRamadan` covering both
+boundaries (start/end of Ramadan) in two different Hijri years (1448H and 1449H), so this isn't
+validated against only one occurrence of Ramadan the way the original calendar epoch mistake was
+(see the "Misri calendar off-by-one fix" section above for why that matters). `MealPlansControllerTests.cs`
+and `NonServingDaysControllerTests.cs` each gained a `Create_RejectsDateWithinRamadan` test, and
+their shared `NextNonSunday` test helper (used by unrelated happy-path tests to pick a "today +30
+days" date) now also skips Ramadan, so those tests can't start silently flaking in a future year
+when that 30-day offset happens to land inside Ramadan.
+
+Nothing was compiled (no `dotnet` CLI in this environment, as always) -- verified via
+brace/paren-balance checks on every touched `.cs` file, `node --check` on every touched inline
+`<script>` block, a div-balance check on every touched HTML file, and a real Node.js functional
+smoke test of `CK.misri.isRamadan` against both Ramadan boundaries in two different Hijri years
+(2027-02-05/06 and 2027-03-07/08 for 1448H; 2028-01-27 and 2028-02-25/26 for 1449H) -- all
+correct. Still needs a `dotnet build`/`dotnet test` pass and a real-browser check of Meal Plans,
+Meal Calendar, and Non-Serving Days in Visual Studio before relying on this.
