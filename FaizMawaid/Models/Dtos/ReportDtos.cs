@@ -11,6 +11,9 @@ namespace FaizMawaid.Models.Dtos
     {
         public DateOnly Date { get; set; }
         public bool IsServingDay { get; set; }
+        /// <summary>True when this date is a Special Day -- everyone (including families that don't take the regular meal) is counted, and it counts as a serving day even on a Sunday/Ramadan/non-serving day.</summary>
+        public bool IsSpecialDay { get; set; }
+        public string? SpecialDayName { get; set; }
         public int TotalThaalis { get; set; }
         public List<DailyThaaliCountItem> ByThaaliSize { get; set; } = new();
     }
@@ -28,6 +31,8 @@ namespace FaizMawaid.Models.Dtos
         /// <summary>The cancellation's own start/end -- may span more days than the single date this item is grouped under.</summary>
         public DateOnly StartDate { get; set; }
         public DateOnly EndDate { get; set; }
+        /// <summary>False for a family that only receives meals on Special Days -- its cancellation only counts on a Special Day.</summary>
+        public bool TakesRegularMeal { get; set; } = true;
     }
 
     /// <summary>All families cancelled on one specific date within a requested range.</summary>
@@ -35,6 +40,8 @@ namespace FaizMawaid.Models.Dtos
     {
         public DateOnly Date { get; set; }
         public bool IsServingDay { get; set; }
+        public bool IsSpecialDay { get; set; }
+        public string? SpecialDayName { get; set; }
         public List<CancelledThaaliItem> Cancellations { get; set; } = new();
     }
 

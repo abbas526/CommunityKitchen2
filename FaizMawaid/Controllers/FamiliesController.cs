@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using System.Text.Json;
 using FaizMawaid.Models;
 using FaizMawaid.Models.Dtos;
@@ -178,8 +179,31 @@ namespace FaizMawaid.Controllers
         [Authorize(Roles = RoleNames.Admin)]
         public async Task<IActionResult> Update(ulong id, UpdateFamilyRequest request)
         {
+            // Only fetch the "before" row when the regular-meal flag is actually being set, so the
+            // audit trail records a real change (and ordinary address/area edits stay a single call).
+            var before = request.TakesRegularMeal.HasValue ? await _familyRepository.GetByIdAsync(id) : null;
+
             var updated = await _familyRepository.UpdateAsync(id, request);
-            return updated ? NoContent() : NotFound();
+            if (!updated)
+            {
+                return NotFound();
+            }
+
+            if (request.TakesRegularMeal.HasValue && (before is null || before.TakesRegularMeal != request.TakesRegularMeal.Value))
+            {
+                var userIdClaim = User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                await _auditLogRepository.AddAsync(new AuditLog
+                {
+                    UserId = ulong.TryParse(userIdClaim, out var actingUserId) ? actingUserId : null,
+                    Action = "FamilyTakesRegularMealChanged",
+                    EntityType = "Family",
+                    EntityId = id,
+                    MetadataJson = JsonSerializer.Serialize(new { request.TakesRegularMeal }),
+                    CreatedAt = DateTime.UtcNow
+                });
+            }
+
+            return NoContent();
         }
 
         /// <summary>
@@ -377,6 +401,15 @@ namespace FaizMawaid.Controllers
                     continue;
                 }
 
+                if (!TryParseYesNo(item.TakesRegularMeal, defaultValue: true, out var takesRegularMeal))
+                {
+                    rowResult.Status = "Skipped";
+                    rowResult.Message = $"'Take Thaali Regularly' must be Yes or No (or left blank for Yes), but was '{item.TakesRegularMeal}'.";
+                    response.SkippedCount++;
+                    response.Rows.Add(rowResult);
+                    continue;
+                }
+
                 byte? areaId = null;
                 if (!string.IsNullOrWhiteSpace(item.AreaName))
                 {
@@ -423,6 +456,7 @@ namespace FaizMawaid.Controllers
                         Phone = item.Phone,
                         Address = item.Address,
                         AreaId = areaId,
+                        TakesRegularMeal = takesRegularMeal,
                         NumberOfMembers = item.NumberOfMembers,
                         ThaaliSizeId = size.Id
                     };
@@ -450,6 +484,19 @@ namespace FaizMawaid.Controllers
             });
 
             return Ok(response);
+        }
+
+        /// <summary>Parses a Yes/No cell from an uploaded sheet. Blank = <paramref name="defaultValue"/>; anything other than yes/y/true/1 or no/n/false/0 is rejected so a typo is never silently treated as a default.</summary>
+        public static bool TryParseYesNo(string? raw, bool defaultValue, out bool value)
+        {
+            var text = raw?.Trim();
+            if (string.IsNullOrEmpty(text)) { value = defaultValue; return true; }
+            switch (text.ToLowerInvariant())
+            {
+                case "yes": case "y": case "true": case "1": value = true; return true;
+                case "no": case "n": case "false": case "0": value = false; return true;
+                default: value = defaultValue; return false;
+            }
         }
     }
 }

@@ -115,6 +115,7 @@
                     '<dt class="col-4 ck-muted fw-normal">Address</dt><dd class="col-8">' + CK.esc(f.address || "—") + '</dd>' +
                     '<dt class="col-4 ck-muted fw-normal">Members</dt><dd class="col-8">' + CK.esc(f.numberOfMembers || "—") + '</dd>' +
                     '<dt class="col-4 ck-muted fw-normal">Thaali Size</dt><dd class="col-8">' + CK.esc(size ? size.name : ("#" + f.thaaliSizeId)) + '</dd>' +
+                    '<dt class="col-4 ck-muted fw-normal">Regular Meal</dt><dd class="col-8">' + (f.takesRegularMeal === false ? 'No &mdash; special days only' : 'Yes') + '</dd>' +
                     '<dt class="col-4 ck-muted fw-normal">Applied</dt><dd class="col-8">' + CK.fmt.dateShort(f.createdAt) + '</dd>' +
                   '</dl>' +
                   '<div class="d-flex gap-2">' +

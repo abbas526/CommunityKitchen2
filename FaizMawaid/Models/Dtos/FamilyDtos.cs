@@ -16,6 +16,8 @@ namespace FaizMawaid.Models.Dtos
         /// <summary>Optional -- left null when the family will pick their thaali up from the kitchen themselves.</summary>
         public byte? AreaId { get; set; }
         public byte? NumberOfMembers { get; set; }
+        /// <summary>"Take Thaali/Tiffin Regularly" -- false means the family only receives a meal on Special Days. Defaults to true.</summary>
+        public bool TakesRegularMeal { get; set; } = true;
         public byte ThaaliSizeId { get; set; }
     }
 
@@ -42,6 +44,8 @@ namespace FaizMawaid.Models.Dtos
         /// <summary>Optional -- left null when the family will pick their thaali up from the kitchen themselves.</summary>
         public byte? AreaId { get; set; }
         public byte? NumberOfMembers { get; set; }
+        /// <summary>Null = leave unchanged (so a client that doesn't send it can never reset it). Admin-only endpoint.</summary>
+        public bool? TakesRegularMeal { get; set; }
     }
 
     public class ChangeThaaliSizeRequest
@@ -63,6 +67,7 @@ namespace FaizMawaid.Models.Dtos
         public string SubFamilyLabel { get; set; } = string.Empty;
         public string? Address { get; set; }
         public byte? NumberOfMembers { get; set; }
+        public bool TakesRegularMeal { get; set; } = true;
         public byte ThaaliSizeId { get; set; }
         public ulong CreatedByAdminUserId { get; set; }
     }
@@ -82,6 +87,8 @@ namespace FaizMawaid.Models.Dtos
         public string? Address { get; set; }
         /// <summary>Optional. Matched against the Areas master table by name (case-insensitive); a blank value leaves the family with no Area (self-pickup).</summary>
         public string? AreaName { get; set; }
+        /// <summary>Optional "Yes"/"No" text from the Excel sheet (Take Thaali Regularly); blank = Yes. Anything else skips the row.</summary>
+        public string? TakesRegularMeal { get; set; }
         public byte? NumberOfMembers { get; set; }
         public string ThaaliSizeName { get; set; } = string.Empty;
     }

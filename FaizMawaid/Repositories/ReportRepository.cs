@@ -28,7 +28,12 @@ namespace FaizMawaid.Repositories
 
             const string nonServingSql = "SELECT COUNT(1) FROM NonServingDays WHERE TheDate = @Date;";
             var isNonServingDay = await connection.ExecuteScalarAsync<int>(nonServingSql, new { Date = date }) > 0;
-            var isServingDay = date.DayOfWeek != DayOfWeek.Sunday && !MisriCalendar.IsRamadan(date) && !isNonServingDay;
+
+            // A Special Day is always a serving day (it overrides Sunday/Ramadan/non-serving) and is
+            // received by EVERY approved, active family, not just the ones taking the regular meal.
+            var specialDays = await LoadSpecialDaysAsync(connection, date, date);
+            var isSpecialDay = specialDays.TryGetValue(date, out var specialDayName);
+            var isServingDay = isSpecialDay || (date.DayOfWeek != DayOfWeek.Sunday && !MisriCalendar.IsRamadan(date) && !isNonServingDay);
 
             const string sql = @"
                 SELECT ts.Id AS ThaaliSizeId, ts.Name AS ThaaliSizeName, COUNT(f.Id) AS Count
@@ -37,18 +42,21 @@ namespace FaizMawaid.Repositories
                     ON f.ThaaliSizeId = ts.Id
                     AND f.RegistrationStatus = 'Approved'
                     AND f.IsActive = 1
+                    AND (f.TakesRegularMeal = 1 OR @IsSpecialDay = 1)
                     AND f.Id NOT IN (
                         SELECT FamilyId FROM ThaaliCancellations
                         WHERE Status = 'Active' AND StartDate <= @Date AND EndDate >= @Date
                     )
                 GROUP BY ts.Id, ts.Name, ts.SortOrder
                 ORDER BY ts.SortOrder;";
-            var rows = (await connection.QueryAsync<DailyThaaliCountItem>(sql, new { Date = date })).ToList();
+            var rows = (await connection.QueryAsync<DailyThaaliCountItem>(sql, new { Date = date, IsSpecialDay = isSpecialDay })).ToList();
 
             return new DailyThaaliCountResponse
             {
                 Date = date,
                 IsServingDay = isServingDay,
+                IsSpecialDay = isSpecialDay,
+                SpecialDayName = specialDayName,
                 TotalThaalis = rows.Sum(r => r.Count),
                 ByThaaliSize = rows
             };
@@ -69,7 +77,8 @@ namespace FaizMawaid.Repositories
                     ts.Name AS ThaaliSizeName,
                     tc.Reason AS Reason,
                     tc.StartDate AS StartDate,
-                    tc.EndDate AS EndDate
+                    tc.EndDate AS EndDate,
+                    f.TakesRegularMeal AS TakesRegularMeal
                 FROM ThaaliCancellations tc
                 JOIN Families f ON f.Id = tc.FamilyId
                 JOIN ThaaliSizes ts ON ts.Id = f.ThaaliSizeId
@@ -87,16 +96,24 @@ namespace FaizMawaid.Repositories
             var nonServingDates = (await connection.QueryAsync<DateOnly>(
                 nonServingSql, new { FromDate = fromDate, ToDate = toDate })).ToHashSet();
 
+            var specialDays = await LoadSpecialDaysAsync(connection, fromDate, toDate);
+
             var days = new List<CancelledThaaliDayGroup>();
             var totalInstances = 0;
             for (var d = fromDate; d <= toDate; d = d.AddDays(1))
             {
-                var dayCancellations = cancellations.Where(c => c.StartDate <= d && c.EndDate >= d).ToList();
+                var isSpecialDay = specialDays.TryGetValue(d, out var specialDayName);
+                // A family that only receives meals on Special Days has nothing to cancel on any other date.
+                var dayCancellations = cancellations
+                    .Where(c => c.StartDate <= d && c.EndDate >= d && (c.TakesRegularMeal || isSpecialDay))
+                    .ToList();
                 totalInstances += dayCancellations.Count;
                 days.Add(new CancelledThaaliDayGroup
                 {
                     Date = d,
-                    IsServingDay = d.DayOfWeek != DayOfWeek.Sunday && !MisriCalendar.IsRamadan(d) && !nonServingDates.Contains(d),
+                    IsSpecialDay = isSpecialDay,
+                    SpecialDayName = specialDayName,
+                    IsServingDay = isSpecialDay || (d.DayOfWeek != DayOfWeek.Sunday && !MisriCalendar.IsRamadan(d) && !nonServingDates.Contains(d)),
                     Cancellations = dayCancellations
                 });
             }
@@ -121,7 +138,7 @@ namespace FaizMawaid.Repositories
 
             var areas = await LoadAreaColumnsAsync(connection);
 
-            const string familiesSql = "SELECT Id, AreaId FROM Families WHERE RegistrationStatus = 'Approved' AND IsActive = 1;";
+            const string familiesSql = "SELECT Id, AreaId, TakesRegularMeal FROM Families WHERE RegistrationStatus = 'Approved' AND IsActive = 1;";
             var families = (await connection.QueryAsync<FamilyAreaRow>(familiesSql)).ToList();
 
             const string nonServingSql = "SELECT TheDate FROM NonServingDays WHERE TheDate BETWEEN @FromDate AND @ToDate;";
@@ -136,12 +153,16 @@ namespace FaizMawaid.Repositories
                 cancellationsSql, new { FromDate = fromDate, ToDate = toDate })).ToList();
             var cancelledFamiliesByDate = BuildCancelledFamiliesByDate(cancellations, fromDate, toDate);
 
+            var specialDays = await LoadSpecialDaysAsync(connection, fromDate, toDate);
+
             var months = BuildMonthRows(fromDate, toDate, areas);
             var rowsByMonthKey = months.ToDictionary(r => (r.Year, r.Month));
 
             for (var d = fromDate; d <= toDate; d = d.AddDays(1))
             {
-                var isServingDay = d.DayOfWeek != DayOfWeek.Sunday && !MisriCalendar.IsRamadan(d) && !nonServingDates.Contains(d);
+                // A Special Day is always served (even on a Sunday / in Ramadan / on a declared closure) and goes to EVERY family.
+                var isSpecialDay = specialDays.ContainsKey(d);
+                var isServingDay = isSpecialDay || (d.DayOfWeek != DayOfWeek.Sunday && !MisriCalendar.IsRamadan(d) && !nonServingDates.Contains(d));
                 if (!isServingDay)
                 {
                     continue;
@@ -152,6 +173,10 @@ namespace FaizMawaid.Repositories
 
                 foreach (var family in families)
                 {
+                    if (!family.TakesRegularMeal && !isSpecialDay)
+                    {
+                        continue;
+                    }
                     if (cancelledToday is not null && cancelledToday.Contains(family.Id))
                     {
                         continue;
@@ -182,13 +207,15 @@ namespace FaizMawaid.Repositories
             var areas = await LoadAreaColumnsAsync(connection);
 
             const string sql = @"
-                SELECT tc.FamilyId AS FamilyId, f.AreaId AS AreaId, tc.StartDate AS StartDate, tc.EndDate AS EndDate
+                SELECT tc.FamilyId AS FamilyId, f.AreaId AS AreaId, f.TakesRegularMeal AS TakesRegularMeal, tc.StartDate AS StartDate, tc.EndDate AS EndDate
                 FROM ThaaliCancellations tc
                 JOIN Families f ON f.Id = tc.FamilyId
                 WHERE tc.Status = 'Active' AND f.IsActive = 1
                     AND tc.StartDate <= @ToDate AND tc.EndDate >= @FromDate;";
             var cancellations = (await connection.QueryAsync<AreaCancellationRow>(
                 sql, new { FromDate = fromDate, ToDate = toDate })).ToList();
+
+            var specialDays = await LoadSpecialDaysAsync(connection, fromDate, toDate);
 
             var months = BuildMonthRows(fromDate, toDate, areas);
             var rowsByMonthKey = months.ToDictionary(r => (r.Year, r.Month));
@@ -201,6 +228,11 @@ namespace FaizMawaid.Repositories
                 for (var d = start; d <= end; d = d.AddDays(1))
                 {
                     if (!rowsByMonthKey.TryGetValue((d.Year, d.Month), out var row))
+                    {
+                        continue;
+                    }
+                    // A family that only receives meals on Special Days can only have cancelled one of those.
+                    if (!c.TakesRegularMeal && !specialDays.ContainsKey(d))
                     {
                         continue;
                     }
@@ -217,6 +249,14 @@ namespace FaizMawaid.Repositories
                 Months = months,
                 GrandTotal = months.Sum(r => r.Total)
             };
+        }
+
+        /// <summary>Special Days in [fromDate, toDate] as date -> name (name may be null). Special Days override Sunday/Ramadan/non-serving closures and are received by every family.</summary>
+        private static async Task<Dictionary<DateOnly, string?>> LoadSpecialDaysAsync(IDbConnection connection, DateOnly fromDate, DateOnly toDate)
+        {
+            const string sql = "SELECT MealDate, SpecialDayName FROM MealPlans WHERE IsSpecialDay = 1 AND MealDate BETWEEN @FromDate AND @ToDate;";
+            var rows = await connection.QueryAsync<SpecialDayRow>(sql, new { FromDate = fromDate, ToDate = toDate });
+            return rows.ToDictionary(r => r.MealDate, r => r.SpecialDayName);
         }
 
         /// <summary>Every Area the Admin has defined (in SortOrder), plus a trailing "Unassigned / No Area" column.</summary>
@@ -281,6 +321,13 @@ namespace FaizMawaid.Repositories
         {
             public ulong Id { get; set; }
             public byte? AreaId { get; set; }
+            public bool TakesRegularMeal { get; set; }
+        }
+
+        private class SpecialDayRow
+        {
+            public DateOnly MealDate { get; set; }
+            public string? SpecialDayName { get; set; }
         }
 
         private class FamilyDateRangeRow
@@ -294,6 +341,7 @@ namespace FaizMawaid.Repositories
         {
             public ulong FamilyId { get; set; }
             public byte? AreaId { get; set; }
+            public bool TakesRegularMeal { get; set; }
             public DateOnly StartDate { get; set; }
             public DateOnly EndDate { get; set; }
         }

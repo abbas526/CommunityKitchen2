@@ -15,9 +15,11 @@ namespace FaizMawaid.Controllers
     {
         private readonly INonServingDayRepository _nonServingDayRepository;
         private readonly IAuditLogRepository _auditLogRepository;
+        private readonly IMealPlanRepository _mealPlanRepository;
 
-        public NonServingDaysController(INonServingDayRepository nonServingDayRepository, IAuditLogRepository auditLogRepository)
+        public NonServingDaysController(INonServingDayRepository nonServingDayRepository, IAuditLogRepository auditLogRepository, IMealPlanRepository mealPlanRepository)
         {
+            _mealPlanRepository = mealPlanRepository;
             _nonServingDayRepository = nonServingDayRepository;
             _auditLogRepository = auditLogRepository;
         }
@@ -42,6 +44,13 @@ namespace FaizMawaid.Controllers
             if (MisriCalendar.IsRamadan(request.TheDate))
             {
                 return BadRequest("The entire month of Ramadan is already a non-serving period by default -- no need to add it here.");
+            }
+
+            // A Special Day overrides every closure, so the same date can't also be declared closed.
+            var mealOnDate = await _mealPlanRepository.GetByDateAsync(request.TheDate);
+            if (mealOnDate is { IsSpecialDay: true })
+            {
+                return BadRequest($"{request.TheDate:yyyy-MM-dd} is a Special Day (everyone receives a meal). Un-mark it as a Special Day in Meal Plans first if the kitchen is really closed.");
             }
 
             uint id;

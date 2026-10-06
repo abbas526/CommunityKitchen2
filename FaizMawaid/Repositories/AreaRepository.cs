@@ -53,7 +53,7 @@ namespace FaizMawaid.Repositories
             const string sql = @"
                 SELECT
                     (SELECT COUNT(1) FROM Families WHERE AreaId = @Id) +
-                    (SELECT COUNT(1) FROM DeliveryPersons WHERE AreaId = @Id);";
+                    (SELECT COUNT(1) FROM DeliveryPersonAreas WHERE AreaId = @Id);";
             var count = await connection.ExecuteScalarAsync<long>(sql, new { Id = id });
             return count > 0;
         }

@@ -90,10 +90,23 @@
           if (isToday) { classes += " ck-cal-today"; }
 
           var body;
-          if (isSunday || isRamadan || nsd) {
+          var isSpecial = !!(meal && meal.isSpecialDay);
+          var dayStyle = "";
+          if (isSpecial) {
+            // A Special Day overrides Sunday / Ramadan / non-serving closures -- everyone receives the meal.
+            dayStyle = ' style="border-color:#e0a800;box-shadow:inset 0 0 0 1px #e0a800;"';
+            var specialLabel = meal.specialDayName ? ("Special Day: " + meal.specialDayName) : "Special Day";
+            body =
+              '<div class="ck-cal-meta" title="' + CK.esc(specialLabel) + '"><span class="badge text-bg-warning"><i class="bi bi-stars me-1"></i>' + CK.esc(specialLabel) + '</span></div>' +
+              '<div class="ck-cal-desc" title="' + CK.esc(meal.mealDescription) + '">' + CK.esc(meal.mealDescription) + '</div>' +
+              '<a href="meal-plans.html?edit=' + meal.id + '" class="ck-cal-meta"><i class="bi bi-pencil-square me-1"></i>Edit</a>';
+          } else if (isSunday || isRamadan || nsd) {
             classes += " ck-cal-closed";
             var reason = isSunday ? "Sunday" : (isRamadan ? "Ramadan" : (nsd.reason || "Non-serving day"));
             body = '<div class="ck-cal-meta text-danger" title="' + CK.esc(reason) + '"><i class="bi bi-x-circle-fill me-1"></i>' + CK.esc(reason) + '</div>';
+            if (inMonth) {
+              body += '<a href="meal-plans.html?date=' + iso + '&special=1" class="ck-cal-meta ck-muted"><i class="bi bi-stars me-1"></i>Make Special Day</a>';
+            }
           } else if (meal) {
             body =
               '<div class="ck-cal-desc" title="' + CK.esc(meal.mealDescription) + '">' + CK.esc(meal.mealDescription) + '</div>' +
@@ -105,7 +118,7 @@
           }
 
           $grid.append(
-            '<div class="' + classes + '">' +
+            '<div class="' + classes + '"' + dayStyle + '>' +
               '<div class="ck-cal-daynum"><span>' + cursor.getUTCDate() + '</span>' + (isToday ? '<span class="badge text-bg-primary ck-small">Today</span>' : '') + '</div>' +
               '<div class="ck-cal-misri" title="' + CK.esc(CK.misri.display(iso)) + '">' + CK.esc(CK.misri.shortDisplay(iso)) + '</div>' +
               body +

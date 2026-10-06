@@ -27,12 +27,26 @@
     </div>
 
     <div class="d-flex align-items-center gap-2 mb-3 flex-wrap">
-      <label class="form-label mb-0" for="statusFilter">Status:</label>
+      <div class="input-group" style="width:auto;min-width:260px;max-width:340px;">
+        <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+        <input type="search" class="form-control" id="familySearch" placeholder="Search name or Sabil No." autocomplete="off" aria-label="Search families by name or Sabil number">
+      </div>
+      <label class="form-label mb-0 ms-2" for="statusFilter">Status:</label>
       <select class="form-select" id="statusFilter" style="width:auto;">
         <option value="">All</option>
         <option value="Pending">Pending</option>
         <option value="Approved" selected>Approved</option>
         <option value="Rejected">Rejected</option>
+      </select>
+      <label class="form-label mb-0 ms-2" for="areaFilter">Area:</label>
+      <select class="form-select" id="areaFilter" style="width:auto;">
+        <option value="">All</option>
+      </select>
+      <label class="form-label mb-0 ms-2" for="mealFilter">Meals:</label>
+      <select class="form-select" id="mealFilter" style="width:auto;">
+        <option value="">All</option>
+        <option value="regular">Regular meal</option>
+        <option value="special">Special days only</option>
       </select>
       <span class="ck-muted ms-auto" id="resultCount"></span>
     </div>
@@ -44,7 +58,7 @@
       <table class="table align-middle bg-white">
         <thead>
           <tr>
-            <th>Family Head</th><th>Sabil No.</th><th>Contact</th><th>Members</th><th>Area</th><th>Thaali Size</th><th>Status</th><th>Active</th><th></th>
+            <th>Family Head</th><th>Sabil No.</th><th>Contact</th><th>Members</th><th>Area</th><th>Thaali Size</th><th>Meals</th><th>Status</th><th>Active</th><th></th>
           </tr>
         </thead>
         <tbody id="familiesBody"></tbody>
@@ -109,9 +123,16 @@
           <div id="editAlert" class="alert alert-danger d-none"></div>
           <form id="editForm">
             <input type="hidden" id="editFamilyId">
+            <input type="hidden" id="editOriginalSizeId">
             <div class="mb-3"><label class="form-label" for="editAddress">Address</label><input type="text" class="form-control" id="editAddress" maxlength="500"></div>
             <div class="mb-3"><label class="form-label" for="editAreaId">Area / Tower</label><select class="form-select" id="editAreaId"><option value="">(none / pickup from kitchen)</option></select></div>
             <div class="mb-3"><label class="form-label" for="editMembers">Family members</label><input type="number" class="form-control" id="editMembers" min="1" max="50"></div>
+            <div class="mb-3">
+              <label class="form-label" for="editTakesRegularMeal">Take Thaali/Tiffin Regularly</label>
+              <select class="form-select" id="editTakesRegularMeal"><option value="true">Yes</option><option value="false">No &mdash; special days only</option></select>
+              <div class="form-text">If No, this family is in the system but only receives a meal on Special Days, and only sees Special Day meals.</div>
+            </div>
+            <div class="mb-3"><label class="form-label" for="editThaaliSizeId">Thaali Size</label><select class="form-select" id="editThaaliSizeId"></select><div class="form-text">Changing this applies immediately, effective today.</div></div>
           </form>
         </div>
         <div class="modal-footer">
@@ -173,10 +194,14 @@
                 <label class="form-label" for="subFamilyMembers">Members <span class="ck-muted fw-normal">(optional)</span></label>
                 <input type="number" class="form-control" id="subFamilyMembers" min="1" max="50">
               </div>
-              <div class="col-12">
+              <div class="col-md-6">
                 <label class="form-label" for="subFamilyThaaliSizeId">Thaali size</label>
                 <select class="form-select" id="subFamilyThaaliSizeId" required></select>
                 <div class="invalid-feedback">Please choose a thaali size.</div>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label" for="subFamilyTakesRegularMeal">Take Thaali/Tiffin Regularly</label>
+                <select class="form-select" id="subFamilyTakesRegularMeal"><option value="true" selected>Yes</option><option value="false">No &mdash; special days only</option></select>
               </div>
             </div>
             <div class="d-grid mt-3">
@@ -210,7 +235,7 @@
       if (!session) { return; }
       CK.nav.render("admin", "families");
 
-      var usersById = {}, sizesById = {}, areasById = {};
+      var usersById = {}, sizesById = {}, areasById = {}, allFamilies = [];
 
       function statusBadgeClass(status) { return "badge badge-status-" + status.toLowerCase(); }
 
@@ -232,11 +257,51 @@
           $.each(usersResp[0] || [], function (i, u) { usersById[u.id] = u; });
           $.each(sizesResp[0] || [], function (i, s) { sizesById[s.id] = s; });
           $.each(areasResp[0] || [], function (i, a) { areasById[a.id] = a; });
-          render(familiesResp[0] || []);
+          allFamilies = familiesResp[0] || [];
+
+          var currentAreaFilter = $("#areaFilter").val();
+          var $areaSelect = $("#areaFilter").empty().append('<option value="">All</option>').append('<option value="none">(none / pickup from kitchen)</option>');
+          var areaList = [];
+          $.each(areasById, function (id, a) { areaList.push(a); });
+          areaList.sort(function (a, b) { return (a.sortOrder || 0) - (b.sortOrder || 0); });
+          $.each(areaList, function (i, a) { $areaSelect.append('<option value="' + a.id + '">' + CK.esc(a.name) + '</option>'); });
+          $areaSelect.val(currentAreaFilter || "");
+
+          applyAreaFilter();
         }).fail(function (xhr) {
           CK.toast(CK.api.errorMessage(xhr, "Could not load families."), "danger");
           $("#loadingBox").hide();
         });
+      }
+
+      function applyAreaFilter() {
+        var areaVal = $("#areaFilter").val();
+        var filtered = allFamilies;
+        if (areaVal === "none") {
+          filtered = allFamilies.filter(function (f) { return !f.areaId; });
+        } else if (areaVal) {
+          filtered = allFamilies.filter(function (f) { return String(f.areaId) === String(areaVal); });
+        }
+        // Search: every word typed must appear somewhere in the family head's name (partial words and any
+        // order are fine, e.g. "pitha juz"), or the text must appear in the Sabil Number (e.g. "39" finds 390-399).
+        var query = $.trim($("#familySearch").val() || "").toLowerCase();
+        if (query) {
+          var words = query.split(/\s+/);
+          filtered = filtered.filter(function (f) {
+            var user = usersById[f.familyHeadUserId] || {};
+            var name = String(user.fullName || f.subFamilyLabel || "").toLowerCase();
+            var sabil = String(user.sabilNumber || "").toLowerCase();
+            if (sabil.indexOf(query) !== -1) { return true; }
+            return words.every(function (w) { return name.indexOf(w) !== -1; });
+          });
+        }
+        var mealVal = $("#mealFilter").val();
+        if (mealVal === "regular") {
+          filtered = filtered.filter(function (f) { return f.takesRegularMeal !== false; });
+        } else if (mealVal === "special") {
+          filtered = filtered.filter(function (f) { return f.takesRegularMeal === false; });
+        }
+        render(filtered);
       }
 
       function render(families) {
@@ -265,10 +330,11 @@
                 (f.registrationStatus === "Approved" ? ' <button class="btn btn-sm btn-link p-0 ms-1 change-size-btn" data-id="' + f.id + '" data-size="' + f.thaaliSizeId + '" title="Change size"><i class="bi bi-pencil-square"></i></button>' : '') +
                 ' <button class="btn btn-sm btn-link p-0 ms-1 history-btn" data-id="' + f.id + '" title="History"><i class="bi bi-clock-history"></i></button>' +
               '</td>' +
+              '<td>' + (f.takesRegularMeal === false ? '<span class="badge text-bg-warning" title="Receives a meal on Special Days only">Special days only</span>' : '<span class="badge text-bg-light border">Regular</span>') + '</td>' +
               '<td><span class="' + statusBadgeClass(f.registrationStatus) + '">' + f.registrationStatus + '</span></td>' +
               '<td>' + (f.isActive ? '<span class="badge badge-status-active">Active</span>' : '<span class="badge badge-status-inactive">Inactive</span>') + '</td>' +
               '<td class="text-end text-nowrap">' +
-                '<button class="btn btn-sm btn-outline-secondary edit-btn" data-id="' + f.id + '" data-address="' + CK.esc(f.address || "") + '" data-area-id="' + (f.areaId || "") + '" data-members="' + (f.numberOfMembers || "") + '" title="Edit"><i class="bi bi-pencil"></i></button> ' +
+                '<button class="btn btn-sm btn-outline-secondary edit-btn" data-id="' + f.id + '" data-address="' + CK.esc(f.address || "") + '" data-area-id="' + (f.areaId || "") + '" data-members="' + (f.numberOfMembers || "") + '" data-size-id="' + f.thaaliSizeId + '" data-regular="' + (f.takesRegularMeal === false ? "false" : "true") + '" title="Edit"><i class="bi bi-pencil"></i></button> ' +
                 (f.registrationStatus === "Approved"
                   ? '<button class="btn btn-sm btn-outline-secondary subfamilies-btn" data-id="' + f.id + '" data-name="' + CK.esc(user.fullName || ("Family #" + f.id)) + '" title="Sub-Families"><i class="bi bi-diagram-3"></i></button> '
                   : '') +
@@ -282,6 +348,9 @@
       }
 
       $("#statusFilter").on("change", load);
+      $("#areaFilter").on("change", applyAreaFilter);
+      $("#mealFilter").on("change", applyAreaFilter);
+      $("#familySearch").on("input", applyAreaFilter);
 
       // Edit
       $(document).on("click", ".edit-btn", function () {
@@ -294,18 +363,47 @@
           $areaSelect.append('<option value="' + a.id + '"' + (String(currentAreaId) === String(id) ? " selected" : "") + '>' + CK.esc(a.name) + '</option>');
         });
         $("#editMembers").val($(this).data("members"));
+        $("#editTakesRegularMeal").val(String($(this).data("regular")) === "false" ? "false" : "true");
+        var currentSizeId = $(this).data("size-id");
+        $("#editOriginalSizeId").val(currentSizeId);
+        var $sizeSelect = $("#editThaaliSizeId").empty();
+        $.each(sizesById, function (id, s) {
+          $sizeSelect.append('<option value="' + s.id + '"' + (String(currentSizeId) === String(id) ? " selected" : "") + '>' + CK.esc(s.name) + '</option>');
+        });
         new bootstrap.Modal(document.getElementById("editModal")).show();
       });
       $("#saveEditBtn").on("click", function () {
         var id = $("#editFamilyId").val();
         var membersVal = $("#editMembers").val();
         var areaVal = $("#editAreaId").val();
-        var payload = { address: $("#editAddress").val().trim() || null, areaId: areaVal ? parseInt(areaVal, 10) : null, numberOfMembers: membersVal ? parseInt(membersVal, 10) : null };
+        var payload = { address: $("#editAddress").val().trim() || null, areaId: areaVal ? parseInt(areaVal, 10) : null, numberOfMembers: membersVal ? parseInt(membersVal, 10) : null, takesRegularMeal: $("#editTakesRegularMeal").val() === "true" };
+
+        var originalSizeId = $("#editOriginalSizeId").val();
+        var newSizeId = $("#editThaaliSizeId").val();
+        var sizeChanged = newSizeId && String(newSizeId) !== String(originalSizeId);
+
         var $btn = $(this).prop("disabled", true).html('<span class="spinner-border spinner-border-sm"></span>');
         CK.api.put("/api/families/" + id, payload).done(function () {
-          $("#editModal").modal("hide");
-          CK.toast("Family updated.", "success");
-          load();
+          if (!sizeChanged) {
+            $("#editModal").modal("hide");
+            CK.toast("Family updated.", "success");
+            load();
+            return;
+          }
+          var sizePayload = {
+            newThaaliSizeId: parseInt(newSizeId, 10),
+            changedByUserId: session.userId,
+            effectiveFromDate: CK.today()
+          };
+          CK.api.put("/api/families/" + id + "/thaali-size", sizePayload).done(function () {
+            $("#editModal").modal("hide");
+            CK.toast("Family and thaali size updated.", "success");
+            load();
+          }).fail(function (xhr) {
+            $("#editModal").modal("hide");
+            CK.toast("Family details saved, but the thaali size change failed: " + CK.api.errorMessage(xhr), "danger");
+            load();
+          });
         }).fail(function (xhr) {
           $("#editAlert").text(CK.api.errorMessage(xhr, "Could not update this family.")).removeClass("d-none");
         }).always(function () { $btn.prop("disabled", false).html('<i class="bi bi-check2 me-1"></i>Save'); });
@@ -367,7 +465,7 @@
             $("#subFamiliesListBox").html('<p class="ck-muted mb-0">No sub-families linked yet.</p>');
             return;
           }
-          var html = '<div class="table-responsive"><table class="table align-middle bg-white mb-0"><thead><tr><th>Label</th><th>Address</th><th>Members</th><th>Thaali Size</th><th>Status</th></tr></thead><tbody>';
+          var html = '<div class="table-responsive"><table class="table align-middle bg-white mb-0"><thead><tr><th>Label</th><th>Address</th><th>Members</th><th>Thaali Size</th><th>Meals</th><th>Status</th></tr></thead><tbody>';
           $.each(subFamilies, function (i, sf) {
             var size = sizesById[sf.thaaliSizeId];
             html += '<tr>' +
@@ -375,6 +473,7 @@
               '<td>' + CK.esc(sf.address || "—") + '</td>' +
               '<td>' + CK.esc(sf.numberOfMembers || "—") + '</td>' +
               '<td>' + CK.esc(size ? size.name : ("#" + sf.thaaliSizeId)) + '</td>' +
+              '<td>' + (sf.takesRegularMeal === false ? '<span class="badge text-bg-warning">Special days only</span>' : 'Regular') + '</td>' +
               '<td>' + subFamilyStatusLabel(sf) + '</td>' +
               '</tr>';
           });
@@ -412,6 +511,7 @@
           address: $("#subFamilyAddress").val().trim() || null,
           numberOfMembers: membersVal ? parseInt(membersVal, 10) : null,
           thaaliSizeId: parseInt($("#subFamilyThaaliSizeId").val(), 10),
+          takesRegularMeal: $("#subFamilyTakesRegularMeal").val() === "true",
           createdByAdminUserId: session.userId
         };
         var $btn = $(this).prop("disabled", true).html('<span class="spinner-border spinner-border-sm me-1"></span>Adding&hellip;');
@@ -460,6 +560,7 @@
         { key: "sabilNumber", label: "Sabil Number", width: 16 },
         { key: "address", label: "Address", width: 30 },
         { key: "areaName", label: "Area", width: 24 },
+        { key: "takesRegularMeal", label: "Take Thaali Regularly", width: 22 },
         { key: "numberOfMembers", label: "Number of Members", width: 14 },
         { key: "thaaliSizeName", label: "Thaali Size", width: 14 },
         { key: "password", label: "Password", width: 16 }
@@ -490,8 +591,8 @@
         var size1 = sizeNames[0] || "Medium";
         var size2 = sizeNames[1] || size1;
         var exampleRows = [
-          { fullName: "Fatema Rangwala", email: "fatema.rangwala@example.com", phone: "9821012345", sabilNumber: "10234567", address: "12 Sabil Street, Mumbai", areaName: "Nesbit Road", numberOfMembers: 4, thaaliSizeName: size1, password: suggestPassword("Fatema Rangwala", "10234567") },
-          { fullName: "Hussain Bhagat", email: "hussain.bhagat@example.com", phone: "9821098765", sabilNumber: "10298765", address: "45 Kitchen Lane, Mumbai", areaName: "Dockyard Road", numberOfMembers: 2, thaaliSizeName: size2, password: suggestPassword("Hussain Bhagat", "10298765") }
+          { fullName: "Fatema Rangwala", email: "fatema.rangwala@example.com", phone: "9821012345", sabilNumber: "10234567", address: "12 Sabil Street, Mumbai", areaName: "Nesbit Road", takesRegularMeal: "Yes", numberOfMembers: 4, thaaliSizeName: size1, password: suggestPassword("Fatema Rangwala", "10234567") },
+          { fullName: "Hussain Bhagat", email: "hussain.bhagat@example.com", phone: "9821098765", sabilNumber: "10298765", address: "45 Kitchen Lane, Mumbai", areaName: "Dockyard Road", takesRegularMeal: "No", numberOfMembers: 2, thaaliSizeName: size2, password: suggestPassword("Hussain Bhagat", "10298765") }
         ];
         CK.excel.downloadTemplate(
           "family-bulk-import-template.xlsx",
@@ -503,6 +604,7 @@
             "- Full Name, Email, Sabil Number, and Password are required for every row.",
             "- Thaali Size must exactly match one of the sizes defined in this system: " + (sizeNames.length > 0 ? sizeNames.join(", ") : "(none defined yet -- add sizes first, under Thaali Sizes)") + ".",
             "- Area is optional -- leave it blank for families who pick their thaali up from the kitchen. If filled in, it must exactly match one of the Area names defined in this system (Kitchen Setup > Areas); the system looks up the matching Area for you.",
+            "- Take Thaali Regularly is optional: Yes (or blank) = receives the regular daily meal; No = in the system but only receives a meal on Special Days. Only Yes/No (or blank) is accepted.",
             "- Number of Members is optional -- it's only used to help judge Thaali size, this system doesn't track who those members are.",
             "- Every imported family is created already Approved and active -- no separate approval step needed.",
             "",
@@ -538,6 +640,7 @@
             var phone = String(row.phone || "").trim();
             var address = String(row.address || "").trim();
             var areaName = String(row.areaName || "").trim();
+            var takesRegularMealRaw = String(row.takesRegularMeal || "").trim();
             var membersRaw = row.numberOfMembers;
             var numberOfMembers = (membersRaw !== "" && membersRaw !== undefined && !isNaN(parseInt(membersRaw, 10))) ? parseInt(membersRaw, 10) : null;
 
@@ -545,6 +648,7 @@
             if (!fullName || !email || !sabilNumber || !password) { issue = "Full Name, Email, Sabil Number, and Password are all required."; }
             else if (password.length < 8) { issue = "Password must be at least 8 characters."; }
             else if (!thaaliSizeName) { issue = "Thaali Size is required."; }
+            else if (takesRegularMealRaw && !/^(yes|y|true|1|no|n|false|0)$/i.test(takesRegularMealRaw)) { issue = "Take Thaali Regularly must be Yes or No (or blank)."; }
 
             if (issue) {
               problems++;
@@ -552,7 +656,7 @@
             } else {
               parsedFamilyRows.push({
                 fullName: fullName, email: email, phone: phone || null, sabilNumber: sabilNumber,
-                address: address || null, areaName: areaName || null, numberOfMembers: numberOfMembers, thaaliSizeName: thaaliSizeName, password: password
+                address: address || null, areaName: areaName || null, takesRegularMeal: takesRegularMealRaw || null, numberOfMembers: numberOfMembers, thaaliSizeName: thaaliSizeName, password: password
               });
               $body.append('<tr><td>' + CK.esc(fullName) + '</td><td>' + CK.esc(email) + '</td><td>' + CK.esc(sabilNumber) + '</td><td>' + CK.esc(thaaliSizeName) + '</td><td class="text-success ck-small"><i class="bi bi-check-lg"></i></td></tr>');
             }

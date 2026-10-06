@@ -31,7 +31,7 @@ namespace FaizMawaid.Tests.ControllerTests
             var auditRepo = new Mock<IAuditLogRepository>();
             var days = new List<NonServingDay> { new() { Id = 1, TheDate = NextNonSunday() } };
             repo.Setup(r => r.GetAllAsync(null)).ReturnsAsync(days);
-            var controller = new NonServingDaysController(repo.Object, auditRepo.Object);
+            var controller = new NonServingDaysController(repo.Object, auditRepo.Object, new Mock<IMealPlanRepository>().Object);
 
             var result = await controller.GetAll(null);
 
@@ -51,7 +51,7 @@ namespace FaizMawaid.Tests.ControllerTests
                 CreatedByUserId = 1
             };
             repo.Setup(r => r.CreateAsync(request)).ReturnsAsync(99u);
-            var controller = new NonServingDaysController(repo.Object, auditRepo.Object);
+            var controller = new NonServingDaysController(repo.Object, auditRepo.Object, new Mock<IMealPlanRepository>().Object);
 
             var result = await controller.Create(request);
 
@@ -70,7 +70,7 @@ namespace FaizMawaid.Tests.ControllerTests
                 Reason = "Festival",
                 CreatedByUserId = 1
             };
-            var controller = new NonServingDaysController(repo.Object, auditRepo.Object);
+            var controller = new NonServingDaysController(repo.Object, auditRepo.Object, new Mock<IMealPlanRepository>().Object);
 
             var result = await controller.Create(request);
 
@@ -85,7 +85,7 @@ namespace FaizMawaid.Tests.ControllerTests
             var repo = new Mock<INonServingDayRepository>();
             var auditRepo = new Mock<IAuditLogRepository>();
             repo.Setup(r => r.DeleteAsync(4u)).ReturnsAsync(true);
-            var controller = new NonServingDaysController(repo.Object, auditRepo.Object);
+            var controller = new NonServingDaysController(repo.Object, auditRepo.Object, new Mock<IMealPlanRepository>().Object);
 
             var result = await controller.Delete(4u);
 

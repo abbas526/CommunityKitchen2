@@ -17,7 +17,7 @@ namespace FaizMawaid.Repositories
         }
 
         private const string SelectColumns = @"
-            Id, FamilyHeadUserId, ParentFamilyId, SubFamilyLabel, Address, AreaId, NumberOfMembers, ThaaliSizeId, RegistrationStatus,
+            Id, FamilyHeadUserId, ParentFamilyId, SubFamilyLabel, Address, AreaId, NumberOfMembers, TakesRegularMeal, ThaaliSizeId, RegistrationStatus,
             ApprovedByAdminUserId, ApprovedAt, IsActive, CreatedAt, UpdatedAt";
 
         public async Task<Family?> GetByIdAsync(ulong id)
@@ -84,8 +84,8 @@ namespace FaizMawaid.Repositories
                 }, transaction);
 
                 const string insertFamilySql = @"
-                    INSERT INTO Families (FamilyHeadUserId, Address, AreaId, NumberOfMembers, ThaaliSizeId, RegistrationStatus)
-                    VALUES (@FamilyHeadUserId, @Address, @AreaId, @NumberOfMembers, @ThaaliSizeId, 'Pending');
+                    INSERT INTO Families (FamilyHeadUserId, Address, AreaId, NumberOfMembers, TakesRegularMeal, ThaaliSizeId, RegistrationStatus)
+                    VALUES (@FamilyHeadUserId, @Address, @AreaId, @NumberOfMembers, @TakesRegularMeal, @ThaaliSizeId, 'Pending');
                     SELECT LAST_INSERT_ID();";
                 var familyId = await connection.ExecuteScalarAsync<ulong>(insertFamilySql, new
                 {
@@ -93,6 +93,7 @@ namespace FaizMawaid.Repositories
                     request.Address,
                     request.AreaId,
                     request.NumberOfMembers,
+                    request.TakesRegularMeal,
                     request.ThaaliSizeId
                 }, transaction);
 
@@ -129,8 +130,8 @@ namespace FaizMawaid.Repositories
             try
             {
                 const string insertFamilySql = @"
-                    INSERT INTO Families (ParentFamilyId, SubFamilyLabel, Address, NumberOfMembers, ThaaliSizeId, RegistrationStatus, ApprovedByAdminUserId, ApprovedAt, IsActive)
-                    VALUES (@ParentFamilyId, @SubFamilyLabel, @Address, @NumberOfMembers, @ThaaliSizeId, 'Approved', @CreatedByAdminUserId, UTC_TIMESTAMP(), 1);
+                    INSERT INTO Families (ParentFamilyId, SubFamilyLabel, Address, NumberOfMembers, TakesRegularMeal, ThaaliSizeId, RegistrationStatus, ApprovedByAdminUserId, ApprovedAt, IsActive)
+                    VALUES (@ParentFamilyId, @SubFamilyLabel, @Address, @NumberOfMembers, @TakesRegularMeal, @ThaaliSizeId, 'Approved', @CreatedByAdminUserId, UTC_TIMESTAMP(), 1);
                     SELECT LAST_INSERT_ID();";
                 var subFamilyId = await connection.ExecuteScalarAsync<ulong>(insertFamilySql, new
                 {
@@ -138,6 +139,7 @@ namespace FaizMawaid.Repositories
                     request.SubFamilyLabel,
                     request.Address,
                     request.NumberOfMembers,
+                    request.TakesRegularMeal,
                     request.ThaaliSizeId,
                     request.CreatedByAdminUserId
                 }, transaction);
@@ -195,8 +197,8 @@ namespace FaizMawaid.Repositories
         public async Task<bool> UpdateAsync(ulong familyId, UpdateFamilyRequest request)
         {
             using IDbConnection connection = _connectionFactory.CreateConnection();
-            const string sql = "UPDATE Families SET Address = @Address, AreaId = @AreaId, NumberOfMembers = @NumberOfMembers WHERE Id = @FamilyId;";
-            var rows = await connection.ExecuteAsync(sql, new { FamilyId = familyId, request.Address, request.AreaId, request.NumberOfMembers });
+            const string sql = "UPDATE Families SET Address = @Address, AreaId = @AreaId, NumberOfMembers = @NumberOfMembers, TakesRegularMeal = COALESCE(@TakesRegularMeal, TakesRegularMeal) WHERE Id = @FamilyId;";
+            var rows = await connection.ExecuteAsync(sql, new { FamilyId = familyId, request.Address, request.AreaId, request.NumberOfMembers, request.TakesRegularMeal });
             return rows > 0;
         }
 
@@ -280,8 +282,8 @@ namespace FaizMawaid.Repositories
                 }, transaction);
 
                 const string insertFamilySql = @"
-                    INSERT INTO Families (FamilyHeadUserId, Address, AreaId, NumberOfMembers, ThaaliSizeId, RegistrationStatus, ApprovedByAdminUserId, ApprovedAt, IsActive)
-                    VALUES (@FamilyHeadUserId, @Address, @AreaId, @NumberOfMembers, @ThaaliSizeId, 'Approved', @ApprovedByAdminUserId, UTC_TIMESTAMP(), 1);
+                    INSERT INTO Families (FamilyHeadUserId, Address, AreaId, NumberOfMembers, TakesRegularMeal, ThaaliSizeId, RegistrationStatus, ApprovedByAdminUserId, ApprovedAt, IsActive)
+                    VALUES (@FamilyHeadUserId, @Address, @AreaId, @NumberOfMembers, @TakesRegularMeal, @ThaaliSizeId, 'Approved', @ApprovedByAdminUserId, UTC_TIMESTAMP(), 1);
                     SELECT LAST_INSERT_ID();";
                 var familyId = await connection.ExecuteScalarAsync<ulong>(insertFamilySql, new
                 {
@@ -289,6 +291,7 @@ namespace FaizMawaid.Repositories
                     request.Address,
                     request.AreaId,
                     request.NumberOfMembers,
+                    request.TakesRegularMeal,
                     request.ThaaliSizeId,
                     ApprovedByAdminUserId = approvedByAdminUserId
                 }, transaction);

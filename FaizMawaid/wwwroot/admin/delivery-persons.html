@@ -18,7 +18,7 @@
     <div class="ck-page-header d-flex justify-content-between align-items-center flex-wrap gap-2">
       <div>
         <h1 class="mb-1"><i class="bi bi-bicycle me-2"></i>Delivery Persons</h1>
-        <p class="ck-muted mb-0">The person who delivers Thaali to homes in each Area, and their mobile number.</p>
+        <p class="ck-muted mb-0">The people who deliver Thaali to homes, the Areas each one serves (one person can serve several), and their mobile number.</p>
       </div>
       <button class="btn btn-primary" id="addBtn" disabled><i class="bi bi-plus-lg me-1"></i>Add Delivery Person</button>
     </div>
@@ -34,7 +34,7 @@
 
     <div class="table-responsive d-none" id="tableWrap">
       <table class="table align-middle bg-white">
-        <thead><tr><th>Area</th><th>Name</th><th>Mobile Number</th><th>Status</th><th></th></tr></thead>
+        <thead><tr><th>Areas</th><th>Name</th><th>Mobile Number</th><th>Status</th><th></th></tr></thead>
         <tbody id="personsBody"></tbody>
       </table>
     </div>
@@ -49,9 +49,10 @@
           <form id="personForm" novalidate>
             <input type="hidden" id="personId">
             <div class="mb-3">
-              <label class="form-label" for="personAreaId">Area</label>
-              <select class="form-select" id="personAreaId" required></select>
-              <div class="invalid-feedback">Please select an area.</div>
+              <label class="form-label">Areas served</label>
+              <div class="border rounded p-2" id="personAreaBoxes" style="max-height:220px;overflow-y:auto;"></div>
+              <div class="form-text">Tick every Area this person delivers to.</div>
+              <div class="text-danger small d-none" id="personAreaError">Please choose at least one Area.</div>
             </div>
             <div class="mb-3">
               <label class="form-label" for="personFullName">Full name</label>
@@ -108,12 +109,23 @@
       var areasById = {};
       var areasSorted = [];
 
-      function populateAreaSelect() {
-        var $sel = $("#personAreaId").empty();
-        $sel.append('<option value="">Select an area&hellip;</option>');
+      function populateAreaBoxes(selectedIds) {
+        var selected = {};
+        $.each(selectedIds || [], function (i, id) { selected[id] = true; });
+        var $box = $("#personAreaBoxes").empty();
         $.each(areasSorted, function (i, a) {
-          $sel.append('<option value="' + a.id + '">' + CK.esc(a.name) + '</option>');
+          $box.append(
+            '<div class="form-check">' +
+              '<input class="form-check-input person-area-check" type="checkbox" id="personArea' + a.id + '" value="' + a.id + '"' + (selected[a.id] ? ' checked' : '') + '>' +
+              '<label class="form-check-label" for="personArea' + a.id + '">' + CK.esc(a.name) + '</label>' +
+            '</div>'
+          );
         });
+      }
+
+      function areaNames(areaIds) {
+        var names = $.map(areaIds || [], function (id) { return areasById[id] ? areasById[id].name : "(unknown)"; });
+        return names.join(", ");
       }
 
       function load() {
@@ -131,7 +143,7 @@
           areasById = {};
           areasSorted = areas.slice().sort(function (a, b) { return a.sortOrder - b.sortOrder; });
           $.each(areas, function (i, a) { areasById[a.id] = a; });
-          populateAreaSelect();
+          populateAreaBoxes([]);
 
           if (areasSorted.length === 0) {
             $("#noAreasBox").removeClass("d-none");
@@ -146,14 +158,9 @@
             return;
           }
           $("#tableWrap").removeClass("d-none");
-          persons.sort(function (a, b) {
-            var areaA = areasById[a.areaId] ? areasById[a.areaId].sortOrder : 255;
-            var areaB = areasById[b.areaId] ? areasById[b.areaId].sortOrder : 255;
-            if (areaA !== areaB) { return areaA - areaB; }
-            return a.fullName.localeCompare(b.fullName);
-          });
+          persons.sort(function (a, b) { return a.fullName.localeCompare(b.fullName); });
           $.each(persons, function (i, p) {
-            var areaName = areasById[p.areaId] ? areasById[p.areaId].name : "(unknown)";
+            var areaName = areaNames(p.areaIds) || "(none)";
             var statusBadge = p.isActive
               ? '<span class="badge text-bg-success">Active</span>'
               : '<span class="badge text-bg-secondary">Inactive</span>';
@@ -164,7 +171,7 @@
                 '<td>' + CK.esc(p.mobileNumber) + '</td>' +
                 '<td>' + statusBadge + '</td>' +
                 '<td class="text-end">' +
-                  '<button class="btn btn-sm btn-outline-secondary edit-btn me-1" data-id="' + p.id + '" data-area-id="' + p.areaId + '" data-name="' + CK.esc(p.fullName) + '" data-mobile="' + CK.esc(p.mobileNumber) + '" data-active="' + p.isActive + '"><i class="bi bi-pencil me-1"></i>Edit</button>' +
+                  '<button class="btn btn-sm btn-outline-secondary edit-btn me-1" data-id="' + p.id + '" data-area-ids="' + (p.areaIds || []).join(",") + '" data-name="' + CK.esc(p.fullName) + '" data-mobile="' + CK.esc(p.mobileNumber) + '" data-active="' + p.isActive + '"><i class="bi bi-pencil me-1"></i>Edit</button>' +
                   '<button class="btn btn-sm btn-outline-danger delete-btn" data-id="' + p.id + '" data-name="' + CK.esc(p.fullName) + '"><i class="bi bi-trash me-1"></i>Delete</button>' +
                 '</td>' +
               '</tr>'
@@ -176,11 +183,12 @@
         });
       }
 
-      function openModal(id, areaId, name, mobile, isActive) {
+      function openModal(id, areaIds, name, mobile, isActive) {
         $("#personAlert").addClass("d-none");
+        $("#personAreaError").addClass("d-none");
         $(document.getElementById("personForm")).removeClass("was-validated");
         $("#personId").val(id || "");
-        $("#personAreaId").val(areaId !== undefined && areaId !== null ? String(areaId) : "");
+        populateAreaBoxes(areaIds);
         $("#personFullName").val(name || "");
         $("#personMobileNumber").val(mobile || "");
         $("#personIsActive").prop("checked", isActive === undefined ? true : isActive);
@@ -191,10 +199,11 @@
         new bootstrap.Modal(document.getElementById("personModal")).show();
       }
 
-      $("#addBtn").on("click", function () { openModal(null, "", "", "", true); });
+      $("#addBtn").on("click", function () { openModal(null, [], "", "", true); });
       $(document).on("click", ".edit-btn", function () {
         var $b = $(this);
-        openModal($b.data("id"), $b.data("area-id"), $b.data("name"), $b.data("mobile"), $b.data("active") === true || $b.data("active") === "True" || $b.data("active") === "true");
+        var areaIds = String($b.attr("data-area-ids") || "").split(",").filter(function (x) { return x !== ""; }).map(function (x) { return parseInt(x, 10); });
+        openModal($b.data("id"), areaIds, $b.data("name"), $b.data("mobile"), $b.data("active") === true || $b.data("active") === "True" || $b.data("active") === "true");
       });
 
       var deleteTargetId = null;
@@ -222,9 +231,13 @@
         var form = document.getElementById("personForm");
         if (!form.checkValidity()) { $(form).addClass("was-validated"); return; }
 
+        var areaIds = $(".person-area-check:checked").map(function () { return parseInt($(this).val(), 10); }).get();
+        if (areaIds.length === 0) { $("#personAreaError").removeClass("d-none"); return; }
+        $("#personAreaError").addClass("d-none");
+
         var id = $("#personId").val();
         var payload = {
-          areaId: parseInt($("#personAreaId").val(), 10),
+          areaIds: areaIds,
           fullName: $("#personFullName").val().trim(),
           mobileNumber: $("#personMobileNumber").val().trim()
         };
