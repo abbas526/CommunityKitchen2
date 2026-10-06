@@ -32,6 +32,8 @@ namespace FaizMawaid.Models
         /// <summary>Optional -- a family that picks its thaali up from the kitchen itself has no Area.</summary>
         public byte? AreaId { get; set; }
         public byte? NumberOfMembers { get; set; }
+        /// <summary>False = the family is in the system but only receives a meal on a Special Day (see MealPlan.IsSpecialDay). Admin-only to change after registration.</summary>
+        public bool TakesRegularMeal { get; set; } = true;
         public byte ThaaliSizeId { get; set; }
         public RegistrationStatus RegistrationStatus { get; set; }
         public ulong? ApprovedByAdminUserId { get; set; }

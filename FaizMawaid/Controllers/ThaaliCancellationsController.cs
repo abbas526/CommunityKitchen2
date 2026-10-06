@@ -14,12 +14,15 @@ namespace FaizMawaid.Controllers
         private readonly IThaaliCancellationRepository _cancellationRepository;
         private readonly IFamilyRepository _familyRepository;
         private readonly IAuditLogRepository _auditLogRepository;
+        private readonly IMealPlanRepository _mealPlanRepository;
 
         public ThaaliCancellationsController(
             IThaaliCancellationRepository cancellationRepository,
             IFamilyRepository familyRepository,
-            IAuditLogRepository auditLogRepository)
+            IAuditLogRepository auditLogRepository,
+            IMealPlanRepository mealPlanRepository)
         {
+            _mealPlanRepository = mealPlanRepository;
             _cancellationRepository = cancellationRepository;
             _familyRepository = familyRepository;
             _auditLogRepository = auditLogRepository;
@@ -66,6 +69,18 @@ namespace FaizMawaid.Controllers
             if (family is null || family.RegistrationStatus != RegistrationStatus.Approved || !family.IsActive)
             {
                 return BadRequest("Family must exist and be an approved, active family to cancel a thaali.");
+            }
+
+            // A family that doesn't take the regular meal only receives a meal on Special Days, so it
+            // may only cancel a range that actually contains one. (Any non-special days inside the
+            // range are harmless -- reports ignore them for such a family.)
+            if (!family.TakesRegularMeal)
+            {
+                var specialDays = await _mealPlanRepository.GetSpecialDaysAsync(request.StartDate, request.EndDate);
+                if (!specialDays.Any())
+                {
+                    return BadRequest("This family only receives a meal on Special Days, and there is no Special Day in the selected dates, so there is nothing to cancel.");
+                }
             }
 
             var id = await _cancellationRepository.CreateAsync(request);

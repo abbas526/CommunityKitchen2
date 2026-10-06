@@ -84,6 +84,14 @@
           </div>
 
           <h5 class="mb-3"><i class="bi bi-box-seam-fill me-2"></i>Thaali size</h5>
+          <div class="mb-3">
+            <label for="takesRegularMeal" class="form-label">Take Thaali/Tiffin Regularly?</label>
+            <select class="form-select" id="takesRegularMeal">
+              <option value="true" selected>Yes &mdash; I'd like the regular daily meal</option>
+              <option value="false">No &mdash; special days only</option>
+            </select>
+            <div class="form-text">Choose "No" if you only want to receive the meal on special days announced by the kitchen.</div>
+          </div>
           <div class="mb-4">
             <label for="thaaliSizeId" class="form-label">Choose the thaali size for your family</label>
             <select class="form-select" id="thaaliSizeId" required>
@@ -184,6 +192,7 @@
           address: $("#address").val().trim() || null,
           areaId: areaVal ? parseInt(areaVal, 10) : null,
           numberOfMembers: membersVal ? parseInt(membersVal, 10) : null,
+          takesRegularMeal: $("#takesRegularMeal").val() === "true",
           thaaliSizeId: parseInt($("#thaaliSizeId").val(), 10),
           password: $("#password").val()
         };

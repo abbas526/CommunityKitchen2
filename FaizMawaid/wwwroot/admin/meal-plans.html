@@ -51,6 +51,14 @@
                 <textarea class="form-control" id="mealDescription" required maxlength="500" rows="4" placeholder="e.g. Rice, dal, mixed vegetable curry, roti"></textarea>
                 <div class="invalid-feedback">Please describe the meal.</div>
               </div>
+              <div class="mb-3">
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" id="isSpecialDay">
+                  <label class="form-check-label" for="isSpecialDay"><i class="bi bi-stars me-1"></i>Special Day &mdash; everyone receives this meal</label>
+                </div>
+                <div class="form-text">Families that don't take the regular meal receive it too. A Special Day can fall on a Sunday, in Ramadan, or on a non-serving day.</div>
+                <input type="text" class="form-control mt-2 d-none" id="specialDayName" maxlength="100" placeholder="Occasion name (optional), e.g. Eid, Milad">
+              </div>
               <div class="d-grid">
                 <button type="submit" class="btn btn-primary" id="addBtn"><i class="bi bi-plus-lg me-1"></i>Save Meal</button>
               </div>
@@ -140,6 +148,11 @@
             <span class="ck-muted fw-normal ck-small"><span id="editCharCount">0</span>/500</span>
           </label>
           <textarea class="form-control" id="editDescription" maxlength="500" rows="4"></textarea>
+          <div class="form-check mt-3">
+            <input class="form-check-input" type="checkbox" id="editIsSpecialDay">
+            <label class="form-check-label" for="editIsSpecialDay"><i class="bi bi-stars me-1"></i>Special Day &mdash; everyone receives this meal</label>
+          </div>
+          <input type="text" class="form-control mt-2 d-none" id="editSpecialDayName" maxlength="100" placeholder="Occasion name (optional), e.g. Eid, Milad">
         </div>
         <div class="modal-footer">
           <button class="btn btn-outline-danger me-auto" id="deleteMealBtn"><i class="bi bi-trash me-1"></i>Delete</button>
@@ -167,6 +180,13 @@
       CK.misri.attachLiveCaption($("#mealDate"), $("#mealDateMisriCaption"));
       $("#fromDate").val(todayIso);
       $("#toDate").val(CK.addDays(todayIso, 30));
+
+      $("#isSpecialDay").on("change", function () { $("#specialDayName").toggleClass("d-none", !this.checked); });
+      $("#editIsSpecialDay").on("change", function () { $("#editSpecialDayName").toggleClass("d-none", !this.checked); });
+      function setEditSpecial(isSpecial, name) {
+        $("#editIsSpecialDay").prop("checked", !!isSpecial);
+        $("#editSpecialDayName").val(name || "").toggleClass("d-none", !isSpecial);
+      }
 
       $("#mealDescription").on("input", function () { $("#charCount").text($(this).val().length); });
       $("#editDescription").on("input", function () { $("#editCharCount").text($(this).val().length); });
@@ -236,8 +256,10 @@
               '<div class="col-md-6">' +
                 '<div class="ck-meal-card">' +
                   '<div class="d-flex justify-content-between align-items-start">' +
-                    '<div class="ck-meal-date">' + CK.fmt.date(m.mealDate) + '</div>' +
-                    '<button class="btn btn-sm btn-outline-secondary edit-meal-btn" data-id="' + m.id + '" data-date="' + CK.esc(CK.fmt.date(m.mealDate)) + '" data-desc="' + CK.esc(m.mealDescription) + '"><i class="bi bi-pencil"></i></button>' +
+                    '<div class="ck-meal-date">' + CK.fmt.date(m.mealDate) +
+                      (m.isSpecialDay ? ' <span class="badge text-bg-warning ms-1"><i class="bi bi-stars me-1"></i>' + CK.esc(m.specialDayName ? ("Special: " + m.specialDayName) : "Special Day") + '</span>' : '') +
+                    '</div>' +
+                    '<button class="btn btn-sm btn-outline-secondary edit-meal-btn" data-id="' + m.id + '" data-date="' + CK.esc(CK.fmt.date(m.mealDate)) + '" data-desc="' + CK.esc(m.mealDescription) + '" data-special="' + (m.isSpecialDay ? "true" : "false") + '" data-special-name="' + CK.esc(m.specialDayName || "") + '"><i class="bi bi-pencil"></i></button>' +
                   '</div>' +
                   '<div class="ck-meal-desc mt-2">' + CK.esc(m.mealDescription) + '</div>' +
                 '</div>' +
@@ -259,16 +281,24 @@
         if (!form.checkValidity()) { $(form).addClass("was-validated"); return; }
 
         var dateVal = $("#mealDate").val();
-        if (new Date(dateVal + "T00:00:00").getDay() === 0) {
-          $("#formAlert").text("The kitchen doesn't serve food on Sundays.").removeClass("d-none");
+        var isSpecial = $("#isSpecialDay").is(":checked");
+        // A Special Day overrides the Sunday / Ramadan closures, so those only block an ordinary day.
+        if (!isSpecial && new Date(dateVal + "T00:00:00").getDay() === 0) {
+          $("#formAlert").text("The kitchen doesn't serve food on Sundays. Tick \"Special Day\" if everyone should receive a meal on this date.").removeClass("d-none");
           return;
         }
-        if (CK.misri.isRamadan(dateVal)) {
-          $("#formAlert").text("The kitchen doesn't serve food during the month of Ramadan.").removeClass("d-none");
+        if (!isSpecial && CK.misri.isRamadan(dateVal)) {
+          $("#formAlert").text("The kitchen doesn't serve food during the month of Ramadan. Tick \"Special Day\" if everyone should receive a meal on this date.").removeClass("d-none");
           return;
         }
 
-        var payload = { mealDate: dateVal, mealDescription: $("#mealDescription").val().trim(), createdByUserId: session.userId };
+        var payload = {
+          mealDate: dateVal,
+          mealDescription: $("#mealDescription").val().trim(),
+          isSpecialDay: isSpecial,
+          specialDayName: isSpecial ? ($("#specialDayName").val().trim() || null) : null,
+          createdByUserId: session.userId
+        };
         var $btn = $("#addBtn").prop("disabled", true).html('<span class="spinner-border spinner-border-sm me-1"></span>Saving&hellip;');
 
         CK.api.post("/api/mealplans", payload).done(function () {
@@ -276,6 +306,7 @@
           $("#addForm")[0].reset();
           $(form).removeClass("was-validated");
           $("#mealDate").val(todayIso);
+          $("#specialDayName").addClass("d-none");
           $("#charCount").text("0");
           load();
         }).fail(function (xhr) {
@@ -292,12 +323,19 @@
         var desc = $(this).data("desc");
         $("#editDescription").val(desc);
         $("#editCharCount").text(String(desc).length);
+        setEditSpecial(String($(this).data("special")) === "true", $(this).data("special-name"));
         new bootstrap.Modal(document.getElementById("editModal")).show();
       });
 
       $("#saveEditBtn").on("click", function () {
         var id = $("#editId").val();
-        var payload = { mealDescription: $("#editDescription").val().trim(), updatedByUserId: session.userId };
+        var editSpecial = $("#editIsSpecialDay").is(":checked");
+        var payload = {
+          mealDescription: $("#editDescription").val().trim(),
+          isSpecialDay: editSpecial,
+          specialDayName: editSpecial ? ($("#editSpecialDayName").val().trim() || null) : null,
+          updatedByUserId: session.userId
+        };
         var $btn = $(this).prop("disabled", true).html('<span class="spinner-border spinner-border-sm"></span>');
         CK.api.put("/api/mealplans/" + id, payload).done(function () {
           $("#editModal").modal("hide");
@@ -332,6 +370,7 @@
         var params = new URLSearchParams(window.location.search);
         var editId = params.get("edit");
         var prefillDate = params.get("date");
+        var prefillSpecial = params.get("special") === "1";
         if (!editId && !prefillDate) { return; }
 
         history.replaceState(null, "", window.location.pathname);
@@ -342,12 +381,14 @@
             $("#editModalTitle").html('<i class="bi bi-pencil me-2"></i>Edit Meal &mdash; ' + CK.fmt.date(m.mealDate));
             $("#editDescription").val(m.mealDescription);
             $("#editCharCount").text(String(m.mealDescription).length);
+            setEditSpecial(m.isSpecialDay, m.specialDayName);
             new bootstrap.Modal(document.getElementById("editModal")).show();
           }).fail(function (xhr) {
             CK.toast(CK.api.errorMessage(xhr, "Could not load that meal."), "danger");
           });
         } else if (prefillDate) {
           $("#mealDate").val(prefillDate);
+          if (prefillSpecial) { $("#isSpecialDay").prop("checked", true).trigger("change"); }
           $("html, body").animate({ scrollTop: Math.max(0, $("#addForm").offset().top - 90) }, 200);
         }
       })();
@@ -357,7 +398,9 @@
       // ---------------------------------------------------------------
       var MEAL_HEADERS = [
         { key: "mealDate", label: "Date", width: 16 },
-        { key: "mealDescription", label: "Meal Description", width: 50 }
+        { key: "mealDescription", label: "Meal Description", width: 50 },
+        { key: "isSpecialDay", label: "Special Day", width: 14 },
+        { key: "specialDayName", label: "Special Day Name", width: 24 }
       ];
       var parsedMealRows = [];
 
@@ -376,14 +419,15 @@
           "Meals",
           MEAL_HEADERS,
           [
-            { mealDate: CK.addDays(todayIso, 1), mealDescription: "Khichdi, Kadhi, Papad" },
-            { mealDate: CK.addDays(todayIso, 2), mealDescription: "Biryani, Raita, Salad" }
+            { mealDate: CK.addDays(todayIso, 1), mealDescription: "Khichdi, Kadhi, Papad", isSpecialDay: "", specialDayName: "" },
+            { mealDate: CK.addDays(todayIso, 2), mealDescription: "Biryani, Raita, Salad", isSpecialDay: "Yes", specialDayName: "Milad" }
           ],
           [
             "How to fill this in:",
             "- Date: use the YYYY-MM-DD format, e.g. 2026-10-05.",
             "- Meal Description: up to 500 characters.",
-            "- One row per day -- Sundays, the month of Ramadan, and days marked as non-serving are skipped automatically.",
+            "- Special Day (optional): Yes = EVERYONE receives this meal, including families that only take meals on special days; a Special Day may fall on a Sunday, in Ramadan or on a non-serving day. No = ordinary day. Leave blank to keep an existing date as it is (a new date is then an ordinary day). Special Day Name is an optional occasion name, e.g. Eid.",
+            "- One row per day -- Sundays, the month of Ramadan, and days marked as non-serving are skipped automatically unless the row is a Special Day.",
             "- If a date already has a meal planned, uploading it again overwrites that meal (not a duplicate).",
             "- Delete these two example rows before uploading, or just add your own rows below them."
           ]
@@ -407,17 +451,25 @@
           $.each(rows, function (i, row) {
             var isoDate = CK.excel.parseDateCell(row.mealDate);
             var desc = String(row.mealDescription || "").trim();
+            var specialRaw = String(row.isSpecialDay || "").trim().toLowerCase();
+            var specialName = String(row.specialDayName || "").trim();
+            var isSpecialVal = null;
             var issue = null;
-            if (!isoDate) { issue = "Couldn't understand this date -- use YYYY-MM-DD."; }
+            if (/^(yes|y|true|1)$/.test(specialRaw)) { isSpecialVal = true; }
+            else if (/^(no|n|false|0)$/.test(specialRaw)) { isSpecialVal = false; }
+            else if (specialRaw) { issue = "Special Day must be Yes or No (or blank)."; }
+            if (issue) { /* Special Day cell already flagged above */ }
+            else if (!isoDate) { issue = "Couldn't understand this date -- use YYYY-MM-DD."; }
             else if (!desc) { issue = "Meal description is required."; }
             else if (desc.length > 500) { issue = "Meal description is over 500 characters."; }
+            else if (specialName.length > 100) { issue = "Special Day Name is over 100 characters."; }
 
             if (issue) {
               problems++;
               $body.append('<tr class="table-warning"><td>' + CK.esc(String(row.mealDate)) + '</td><td>' + CK.esc(desc) + '</td><td class="text-danger ck-small">' + CK.esc(issue) + '</td></tr>');
             } else {
-              parsedMealRows.push({ mealDate: isoDate, mealDescription: desc });
-              $body.append('<tr><td>' + CK.esc(isoDate) + '</td><td>' + CK.esc(desc) + '</td><td class="text-success ck-small"><i class="bi bi-check-lg"></i></td></tr>');
+              parsedMealRows.push({ mealDate: isoDate, mealDescription: desc, isSpecialDay: isSpecialVal, specialDayName: isSpecialVal ? (specialName || null) : null });
+              $body.append('<tr><td>' + CK.esc(isoDate) + (isSpecialVal ? ' <span class="badge text-bg-warning">Special</span>' : '') + '</td><td>' + CK.esc(desc) + '</td><td class="text-success ck-small"><i class="bi bi-check-lg"></i></td></tr>');
             }
           });
 

@@ -40,7 +40,7 @@ namespace FaizMawaid.Controllers
             return person is null ? NotFound() : Ok(person);
         }
 
-        /// <summary>Active Delivery Persons for one Area -- what a family's dashboard shows for "who serves my area". Open to any signed-in user (any Family Head can look up any Area's server, same trust level as the rest of this app's family-facing lookups).</summary>
+        /// <summary>Active Delivery Persons who serve one Area (a person may serve several Areas) -- what a family's dashboard shows for "who serves my area". Open to any signed-in user (any Family Head can look up any Area's server, same trust level as the rest of this app's family-facing lookups).</summary>
         [HttpGet("by-area/{areaId}")]
         public async Task<ActionResult<IEnumerable<DeliveryPerson>>> GetByArea(byte areaId)
         {
@@ -56,10 +56,10 @@ namespace FaizMawaid.Controllers
                 return BadRequest("Name and mobile number are both required.");
             }
 
-            var area = await _areaRepository.GetByIdAsync(request.AreaId);
-            if (area is null)
+            var areaError = await ValidateAreasAsync(request.AreaIds);
+            if (areaError is not null)
             {
-                return BadRequest($"AreaId {request.AreaId} does not exist.");
+                return BadRequest(areaError);
             }
 
             var id = await _deliveryPersonRepository.CreateAsync(request);
@@ -76,10 +76,10 @@ namespace FaizMawaid.Controllers
                 return BadRequest("Name and mobile number are both required.");
             }
 
-            var area = await _areaRepository.GetByIdAsync(request.AreaId);
-            if (area is null)
+            var areaError = await ValidateAreasAsync(request.AreaIds);
+            if (areaError is not null)
             {
-                return BadRequest($"AreaId {request.AreaId} does not exist.");
+                return BadRequest(areaError);
             }
 
             var updated = await _deliveryPersonRepository.UpdateAsync(id, request);
@@ -92,6 +92,25 @@ namespace FaizMawaid.Controllers
         {
             var deleted = await _deliveryPersonRepository.DeleteAsync(id);
             return deleted ? NoContent() : NotFound();
+        }
+
+        /// <summary>A Delivery Person must serve at least one Area, and every Area must exist.</summary>
+        private async Task<string?> ValidateAreasAsync(List<byte>? areaIds)
+        {
+            if (areaIds is null || areaIds.Count == 0)
+            {
+                return "Choose at least one Area for this Delivery Person.";
+            }
+
+            foreach (var areaId in areaIds.Distinct())
+            {
+                if (await _areaRepository.GetByIdAsync(areaId) is null)
+                {
+                    return $"AreaId {areaId} does not exist.";
+                }
+            }
+
+            return null;
         }
     }
 }

@@ -109,7 +109,8 @@
           $("#reportCard").removeClass("d-none");
           $("#reportDateLabel").text(CK.fmt.date(report.date));
           $("#reportTotal").text(report.totalThaalis);
-          $("#servingBadge").text(report.isServingDay ? "Serving Day" : "Not Serving").attr("class", "badge fs-6 " + (report.isServingDay ? "badge-status-active" : "badge-status-rejected"));
+          var servingLabel = report.isSpecialDay ? (report.specialDayName ? ("Special Day: " + report.specialDayName) : "Special Day") : (report.isServingDay ? "Serving Day" : "Not Serving");
+          $("#servingBadge").text(servingLabel).attr("class", "badge fs-6 " + (report.isSpecialDay ? "text-bg-warning" : (report.isServingDay ? "badge-status-active" : "badge-status-rejected")));
 
           var $box = $("#breakdownBox").empty();
           if (!report.byThaaliSize || report.byThaaliSize.length === 0 || report.totalThaalis === 0) {
@@ -142,6 +143,9 @@
         var badge = day.isServingDay
           ? ''
           : '<span class="badge ms-2 badge-status-rejected">Kitchen Closed</span>';
+        if (day.isSpecialDay) {
+          badge += '<span class="badge ms-2 text-bg-warning"><i class="bi bi-stars me-1"></i>' + CK.esc(day.specialDayName ? ("Special: " + day.specialDayName) : "Special Day") + '</span>';
+        }
         return '<div class="d-flex align-items-center gap-2 mb-2"><h6 class="mb-0">' + CK.esc(label) + '</h6>' + badge + '</div>';
       }
 

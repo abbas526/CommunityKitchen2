@@ -4,12 +4,17 @@ namespace FaizMawaid.Models.Dtos
     {
         public DateOnly MealDate { get; set; }
         public string MealDescription { get; set; } = string.Empty;
+        public bool IsSpecialDay { get; set; }
+        public string? SpecialDayName { get; set; }
         public ulong CreatedByUserId { get; set; }
     }
 
     public class UpdateMealPlanRequest
     {
         public string MealDescription { get; set; } = string.Empty;
+        /// <summary>Null = leave the Special Day flag/name as they are (so an older client or an Excel sheet without that column can't accidentally clear it).</summary>
+        public bool? IsSpecialDay { get; set; }
+        public string? SpecialDayName { get; set; }
         public ulong UpdatedByUserId { get; set; }
     }
 
@@ -18,6 +23,9 @@ namespace FaizMawaid.Models.Dtos
     {
         public DateOnly MealDate { get; set; }
         public string MealDescription { get; set; } = string.Empty;
+        /// <summary>Optional Special Day (Yes/No) column; null/blank = unchanged for an existing date, No for a new one.</summary>
+        public bool? IsSpecialDay { get; set; }
+        public string? SpecialDayName { get; set; }
     }
 
     public class BulkMealPlanRequest

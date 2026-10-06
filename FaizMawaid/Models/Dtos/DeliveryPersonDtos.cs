@@ -2,7 +2,8 @@ namespace FaizMawaid.Models.Dtos
 {
     public class CreateDeliveryPersonRequest
     {
-        public byte AreaId { get; set; }
+        /// <summary>One or more Areas this person serves -- at least one is required.</summary>
+        public List<byte> AreaIds { get; set; } = new();
         public string FullName { get; set; } = string.Empty;
         public string MobileNumber { get; set; } = string.Empty;
         public ulong CreatedByUserId { get; set; }
@@ -10,7 +11,8 @@ namespace FaizMawaid.Models.Dtos
 
     public class UpdateDeliveryPersonRequest
     {
-        public byte AreaId { get; set; }
+        /// <summary>One or more Areas this person serves -- at least one is required.</summary>
+        public List<byte> AreaIds { get; set; } = new();
         public string FullName { get; set; } = string.Empty;
         public string MobileNumber { get; set; } = string.Empty;
         public bool IsActive { get; set; }

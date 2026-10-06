@@ -2,11 +2,12 @@ namespace FaizMawaid.Models
 {
     /// <summary>Maps to the DeliveryPersons table -- the person who delivers/serves the
     /// Thaali to homes in a particular Area (as opposed to a family that picks its own
-    /// thaali up from the kitchen, for whom no Delivery Person applies).</summary>
+    /// thaali up from the kitchen, for whom no Delivery Person applies). One person can serve several Areas.</summary>
     public class DeliveryPerson
     {
         public ulong Id { get; set; }
-        public byte AreaId { get; set; }
+        /// <summary>Every Area this person serves (DeliveryPersonAreas). Not a column on DeliveryPersons -- filled in by the repository.</summary>
+        public List<byte> AreaIds { get; set; } = new();
         public string FullName { get; set; } = string.Empty;
         public string MobileNumber { get; set; } = string.Empty;
         public bool IsActive { get; set; }

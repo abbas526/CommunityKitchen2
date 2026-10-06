@@ -17,7 +17,7 @@ namespace FaizMawaid.Repositories
         }
 
         private const string SelectColumns =
-            "Id, MealDate, MealDescription, CreatedByUserId, CreatedAt, UpdatedByUserId, UpdatedAt";
+            "Id, MealDate, MealDescription, IsSpecialDay, SpecialDayName, CreatedByUserId, CreatedAt, UpdatedByUserId, UpdatedAt";
 
         public async Task<MealPlan?> GetByIdAsync(ulong id)
         {
@@ -40,14 +40,28 @@ namespace FaizMawaid.Repositories
             return await connection.QueryAsync<MealPlan>(sql, new { From = from, To = to });
         }
 
+        public async Task<IEnumerable<MealPlan>> GetSpecialDaysAsync(DateOnly from, DateOnly to)
+        {
+            using IDbConnection connection = _connectionFactory.CreateConnection();
+            var sql = $"SELECT {SelectColumns} FROM MealPlans WHERE IsSpecialDay = 1 AND MealDate BETWEEN @From AND @To ORDER BY MealDate;";
+            return await connection.QueryAsync<MealPlan>(sql, new { From = from, To = to });
+        }
+
         public async Task<ulong> CreateAsync(CreateMealPlanRequest request)
         {
             using IDbConnection connection = _connectionFactory.CreateConnection();
             const string sql = @"
-                INSERT INTO MealPlans (MealDate, MealDescription, CreatedByUserId)
-                VALUES (@MealDate, @MealDescription, @CreatedByUserId);
+                INSERT INTO MealPlans (MealDate, MealDescription, IsSpecialDay, SpecialDayName, CreatedByUserId)
+                VALUES (@MealDate, @MealDescription, @IsSpecialDay, @SpecialDayName, @CreatedByUserId);
                 SELECT LAST_INSERT_ID();";
-            return await connection.ExecuteScalarAsync<ulong>(sql, request);
+            return await connection.ExecuteScalarAsync<ulong>(sql, new
+            {
+                request.MealDate,
+                request.MealDescription,
+                request.IsSpecialDay,
+                SpecialDayName = request.IsSpecialDay ? request.SpecialDayName : null,
+                request.CreatedByUserId
+            });
         }
 
         public async Task<bool> UpdateAsync(ulong id, UpdateMealPlanRequest request)
@@ -55,9 +69,15 @@ namespace FaizMawaid.Repositories
             using IDbConnection connection = _connectionFactory.CreateConnection();
             const string sql = @"
                 UPDATE MealPlans
-                SET MealDescription = @MealDescription, UpdatedByUserId = @UpdatedByUserId
+                SET MealDescription = @MealDescription,
+                    IsSpecialDay = COALESCE(@IsSpecialDay, IsSpecialDay),
+                    SpecialDayName = CASE
+                        WHEN @IsSpecialDay IS NULL THEN SpecialDayName
+                        WHEN @IsSpecialDay = 1 THEN @SpecialDayName
+                        ELSE NULL END,
+                    UpdatedByUserId = @UpdatedByUserId
                 WHERE Id = @Id;";
-            var rows = await connection.ExecuteAsync(sql, new { Id = id, request.MealDescription, request.UpdatedByUserId });
+            var rows = await connection.ExecuteAsync(sql, new { Id = id, request.MealDescription, request.IsSpecialDay, request.SpecialDayName, request.UpdatedByUserId });
             return rows > 0;
         }
 
