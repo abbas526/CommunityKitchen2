@@ -4,6 +4,7 @@ using FaizMawaid.Models.Dtos;
 using FaizMawaid.Repositories.Interfaces;
 using FaizMawaid.Services;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
 namespace FaizMawaid.Controllers
@@ -25,6 +26,7 @@ namespace FaizMawaid.Controllers
         private readonly IRefreshTokenRepository _refreshTokenRepository;
         private readonly IPasswordHasherService _passwordHasher;
         private readonly ITokenService _tokenService;
+        private readonly IAuditLogRepository _auditLogRepository;
 
         public AuthController(
             IUserRepository userRepository,
@@ -32,7 +34,8 @@ namespace FaizMawaid.Controllers
             IFamilyRepository familyRepository,
             IRefreshTokenRepository refreshTokenRepository,
             IPasswordHasherService passwordHasher,
-            ITokenService tokenService)
+            ITokenService tokenService,
+            IAuditLogRepository auditLogRepository)
         {
             _userRepository = userRepository;
             _roleRepository = roleRepository;
@@ -40,6 +43,7 @@ namespace FaizMawaid.Controllers
             _refreshTokenRepository = refreshTokenRepository;
             _passwordHasher = passwordHasher;
             _tokenService = tokenService;
+            _auditLogRepository = auditLogRepository;
         }
 
         [HttpPost("login")]
@@ -103,17 +107,19 @@ namespace FaizMawaid.Controllers
         }
 
         /// <summary>
-        /// One-time bootstrap for a brand-new install: creates the very first Admin
-        /// account. Self-limiting -- refuses once ANY Admin already exists, since at that
-        /// point there's a real account able to create further Admins through the normal
-        /// (authenticated) UsersController.Create instead.
+        /// One-time bootstrap for a brand-new install: creates the very first account, as a
+        /// SuperAdmin (so a fresh install can manage Admins from day one). Self-limiting --
+        /// refuses once ANY Admin or SuperAdmin already exists, since at that point there's a
+        /// real account able to create further accounts through the normal (authenticated)
+        /// UsersController.Create instead.
         /// </summary>
         [HttpPost("bootstrap-admin")]
         [AllowAnonymous]
         public async Task<ActionResult<LoginResponse>> BootstrapAdmin(BootstrapAdminRequest request)
         {
             var existingAdmins = await _userRepository.GetAllAsync(RoleIds.Admin);
-            if (existingAdmins.Any())
+            var existingSuperAdmins = await _userRepository.GetAllAsync(RoleIds.SuperAdmin);
+            if (existingAdmins.Any() || existingSuperAdmins.Any())
             {
                 return Conflict("An Admin account already exists. Ask an existing Admin to create your account instead.");
             }
@@ -129,7 +135,7 @@ namespace FaizMawaid.Controllers
 
             var userId = await _userRepository.CreateAsync(new CreateUserRequest
             {
-                RoleId = RoleIds.Admin,
+                RoleId = RoleIds.SuperAdmin,
                 Email = request.Email,
                 FullName = request.FullName,
                 Phone = request.Phone,
@@ -138,7 +144,7 @@ namespace FaizMawaid.Controllers
             });
             var user = await _userRepository.GetByIdAsync(userId);
 
-            return Ok(await IssueTokensAsync(user!, RoleNames.Admin));
+            return Ok(await IssueTokensAsync(user!, RoleNames.SuperAdmin));
         }
 
         /// <summary>Self-service: the caller changes their own password, proving they know the current one. Reads the caller's identity from the validated JWT -- never trust a client-supplied user id for this.</summary>
@@ -170,15 +176,23 @@ namespace FaizMawaid.Controllers
             return NoContent();
         }
 
-        /// <summary>Admin-only: sets a temporary password for any user (per the community's choice of admin-initiated resets over an email flow -- no SMTP is configured). Forces MustChangePassword so the real owner sets their own at next login.</summary>
+        /// <summary>Admin-only: sets a temporary password for a user (per the community's choice of admin-initiated resets over an email flow -- no SMTP is configured). Forces MustChangePassword so the real owner sets their own at next login. A regular Admin can only reset a Family Head's password; resetting an Admin's or a SuperAdmin's needs a SuperAdmin (otherwise an Admin could take over a more powerful account).</summary>
         [HttpPost("admin-reset-password")]
         [Authorize(Roles = RoleNames.Admin)]
         public async Task<IActionResult> AdminResetPassword(AdminResetPasswordRequest request)
         {
+            if (!AccountHierarchy.TryGetCaller(User, out var callerId, out var callerIsSuperAdmin))
+            {
+                return Unauthorized();
+            }
             var user = await _userRepository.GetByIdAsync(request.UserId);
             if (user is null)
             {
                 return NotFound();
+            }
+            if (!AccountHierarchy.CanManage(callerIsSuperAdmin, user.RoleId))
+            {
+                return StatusCode(StatusCodes.Status403Forbidden, AccountHierarchy.OnlySuperAdminMessage);
             }
             if (string.IsNullOrWhiteSpace(request.NewPassword) || request.NewPassword.Length < 8)
             {
@@ -186,6 +200,14 @@ namespace FaizMawaid.Controllers
             }
 
             await _userRepository.SetPasswordAsync(request.UserId, _passwordHasher.Hash(request.NewPassword), mustChangePassword: true);
+            await _auditLogRepository.AddAsync(new AuditLog
+            {
+                UserId = callerId,
+                Action = "AdminPasswordReset",
+                EntityType = "User",
+                EntityId = request.UserId,
+                CreatedAt = DateTime.UtcNow
+            });
             return NoContent();
         }
 

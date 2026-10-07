@@ -57,6 +57,45 @@ namespace FaizMawaid.Tests.ServiceTests
         }
 
         [Fact]
+        public void CreateAccessToken_SuperAdmin_CarriesBothSuperAdminAndAdminRoleClaims()
+        {
+            var service = new TokenService(BuildConfig());
+            var user = SampleUser();
+            user.RoleId = RoleIds.SuperAdmin;
+
+            var jwt = new JwtSecurityTokenHandler().ReadJwtToken(service.CreateAccessToken(user, RoleNames.SuperAdmin).AccessToken);
+
+            var roles = jwt.Claims.Where(c => c.Type == ClaimTypes.Role).Select(c => c.Value).ToList();
+            Assert.Contains(RoleNames.SuperAdmin, roles);
+            Assert.Contains(RoleNames.Admin, roles);
+            Assert.Equal(2, roles.Count);
+        }
+
+        [Fact]
+        public void CreateAccessToken_Admin_DoesNotCarryTheSuperAdminRole()
+        {
+            var service = new TokenService(BuildConfig());
+            var user = SampleUser();
+            user.RoleId = RoleIds.Admin;
+
+            var jwt = new JwtSecurityTokenHandler().ReadJwtToken(service.CreateAccessToken(user, RoleNames.Admin).AccessToken);
+
+            var roles = jwt.Claims.Where(c => c.Type == ClaimTypes.Role).Select(c => c.Value).ToList();
+            Assert.Equal(new[] { RoleNames.Admin }, roles);
+        }
+
+        [Fact]
+        public void CreateAccessToken_FamilyHead_CarriesOnlyTheFamilyHeadRole()
+        {
+            var service = new TokenService(BuildConfig());
+
+            var jwt = new JwtSecurityTokenHandler().ReadJwtToken(service.CreateAccessToken(SampleUser(), RoleNames.FamilyHead).AccessToken);
+
+            var roles = jwt.Claims.Where(c => c.Type == ClaimTypes.Role).Select(c => c.Value).ToList();
+            Assert.Equal(new[] { RoleNames.FamilyHead }, roles);
+        }
+
+        [Fact]
         public void CreateAccessToken_ThrowsWhenJwtKeyIsMissing()
         {
             var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>()).Build();

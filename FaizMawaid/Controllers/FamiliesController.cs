@@ -308,7 +308,7 @@ namespace FaizMawaid.Controllers
             }
 
             var admin = await _userRepository.GetByIdAsync(request.CreatedByAdminUserId);
-            if (admin is null || admin.RoleId != RoleIds.Admin)
+            if (admin is null || (admin.RoleId != RoleIds.Admin && admin.RoleId != RoleIds.SuperAdmin))
             {
                 return BadRequest("Only an Admin can add a sub-family.");
             }

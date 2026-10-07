@@ -13,6 +13,8 @@ namespace FaizMawaid.Models
         public string Email { get; set; } = string.Empty;
         /// <summary>The Community Head's assigned identifier for this family. Unique when set; Admin accounts typically leave it null.</summary>
         public string? SabilNumber { get; set; }
+        /// <summary>Never sent to a client: GET /api/users returns this model, and a regular Admin must not be able to read a SuperAdmin's password hash.</summary>
+        [System.Text.Json.Serialization.JsonIgnore]
         public string PasswordHash { get; set; } = string.Empty;
         /// <summary>True when whoever set this password wasn't the account owner (an Admin creating the account or resetting the password) -- the UI forces a change at next login while this is true.</summary>
         public bool MustChangePassword { get; set; }

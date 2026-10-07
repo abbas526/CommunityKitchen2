@@ -1120,3 +1120,80 @@ smoke test of `CK.misri.isRamadan` against both Ramadan boundaries in two differ
 (2027-02-05/06 and 2027-03-07/08 for 1448H; 2028-01-27 and 2028-02-25/26 for 1449H) -- all
 correct. Still needs a `dotnet build`/`dotnet test` pass and a real-browser check of Meal Plans,
 Meal Calendar, and Non-Serving Days in Visual Studio before relying on this.
+
+## SuperAdmin role (2026-10-07)
+
+A third role, **SuperAdmin** (`Roles.Id = 3`), who manages everything plus all Admin accounts. Plan:
+Project doc `claude/SuperAdmin-Plan.md`. Branch: `feature/SuperAdmin-1`.
+
+**Rules (confirmed by the user)**
+- At most **2 ACTIVE SuperAdmins** (`RoleIds.MaxActiveSuperAdmins`). Deactivating one frees a seat;
+  re-activating or promoting re-checks the cap.
+- There must **always be at least 1 active SuperAdmin**, and **nobody can change their own role**.
+  The two SuperAdmins can manage each other (deactivate / reset password / demote).
+- A regular Admin can manage **only Family Heads**. Only a SuperAdmin can create, edit, activate,
+  deactivate, reset the password of, or change the role of an Admin/SuperAdmin account
+  (`Services/AccountHierarchy.cs`: `CanManage`, `TryGetCaller`). Caller identity always comes from
+  JWT claims, never the request body.
+- **App Settings and Audit Log are SuperAdmin-only** (controllers + nav + page guards). Everything
+  else a regular Admin did stays unchanged.
+
+**How it works**
+- IDs: 1=Admin, 2=FamilyHead, 3=SuperAdmin. A SuperAdmin's JWT carries **both** role claims
+  (`SuperAdmin` + `Admin`, added in `TokenService.CreateAccessToken`), so the existing
+  `[Authorize(Roles = RoleNames.Admin)]` attributes needed no edits. "SuperAdmin implies Admin"
+  lives in that one place only.
+- The cap is enforced in `UserRepository` inside a transaction that first takes
+  `SELECT ... FROM Roles WHERE Id = 3 FOR UPDATE` (always BEFORE any Users row lock), so two
+  concurrent requests can't both take the last seat and can't deadlock. Methods:
+  `CreateSuperAdminAsync`, `SetRoleAsync`, `SetActiveGuardedAsync`, `CountActiveByRoleAsync`
+  returning `UserChangeResult` (Ok / NotFound / SeatsFull / WouldLeaveNoSuperAdmin). The old
+  `SetActiveAsync` is kept but no longer used by the controller.
+- `UsersController`: hierarchy checks on Create/Update/Activate/Deactivate; new
+  `PUT api/users/{id}/role` (Admin <-> SuperAdmin only) and `GET api/users/superadmin-seats`, both
+  SuperAdmin-only. Deactivation and demotion call `RefreshTokenRepository.RevokeAllForUserAsync`;
+  user/role actions are written to the Audit Log (`UserCreated`, `UserActivated`,
+  `UserDeactivated`, `UserRoleChanged`, `AdminPasswordReset`).
+- `AuthController.AdminResetPassword` enforces the same hierarchy (before this, any Admin could
+  reset any account's password -- a privilege-escalation hole). `BootstrapAdmin` now creates the
+  first account as a **SuperAdmin**, and refuses if any Admin or SuperAdmin exists.
+- `FamiliesController.CreateSubFamily` accepts SuperAdmin as well as Admin.
+- `User.PasswordHash` is now `[JsonIgnore]`: `GET /api/users` returns the `User` model and used to
+  leak every password hash (including a SuperAdmin's) to any Admin.
+
+**UI**: `admin/login.html` accepts Admin or SuperAdmin. `site.js` gained `CK.session.isSuperAdmin`,
+`requireSuperAdmin`, `CK.auth.setUserRole`, `CK.auth.superAdminSeats`; the nav shows "Manage Admins"
+/ App Settings / Audit Log only to SuperAdmins (plus a SuperAdmin badge on the user chip).
+`settings.html` and `audit-log.html` use `requireSuperAdmin`. `dashboard.html` hides those tiles
+for regular Admins and adds a Manage Admins tile. `users.html` now only creates Family Heads and
+shows Admin/SuperAdmin rows read-only. New `admin/admin-accounts.html` (SuperAdmin-only): list,
+Add Admin / Add SuperAdmin (disabled at the cap, with a tooltip), Activate/Deactivate, Reset
+Password, Promote/Demote, and a "SuperAdmin seats: N of 2 used" badge. All HTML pages bumped
+`?v=20261002d` -> `?v=20261007a`.
+
+**Database / rollout order (IMPORTANT)**
+1. Deploy the code.
+2. Run `db/migrations/026_add_superadmin_role.sql` (idempotent: inserts `Roles` row 3).
+3. Run `db/seed/promote_first_superadmin.sql` (set `@superadmin_email` first) to promote the first
+   SuperAdmin. **Do not run it before the code is deployed**: the old code doesn't know role 3 and
+   would lock that account out. The second SuperAdmin is created in-app.
+- **Lockout recovery**: if no active SuperAdmin can sign in, run
+  `UPDATE Users SET RoleId = 3, IsActive = 1 WHERE Email = '<email>';` (limited to 2 by hand --
+  the DB itself has no cap). To undo: `UPDATE Users SET RoleId = 1 WHERE Email = '<email>' AND RoleId = 3;`
+- `db/seed/001_seed_roles.sql` is stale (1=SuperAdmin, 2=Admin, 3=Member) and conflicts with the
+  real IDs. It isn't referenced anywhere -- do NOT run it.
+
+**Known limits**: a deactivated/demoted user's existing access token stays valid until it expires
+(30 min); only their refresh tokens are revoked. The cap is app-enforced, not a DB constraint.
+
+**Tests**: `UsersControllerTests` rewritten (new constructor; claims-based caller; every cell of the
+hierarchy; cap/last-SuperAdmin conflicts; self role change refused; token revocation; reflection
+tests that ChangeRole/GetSuperAdminSeats/AppSettings/AuditLogs require SuperAdmin; PasswordHash
+never serialized). `AuthControllerTests` updated (new audit-log constructor arg, SuperAdmin
+bootstrap, reset-password hierarchy and audit). `TokenServiceTests` gained 3 dual-claim tests.
+New `AccountHierarchyTests`.
+
+Nothing was compiled (no `dotnet` CLI here) -- verified via brace/paren-balance on every touched
+`.cs` file, `node --check` on `site.js` and every touched inline `<script>`, and div balance on the
+touched HTML. Still needs `dotnet build` / `dotnet test` and a browser walk-through (login as
+SuperAdmin and Admin, Manage Admins page, cap of 2) before relying on this.

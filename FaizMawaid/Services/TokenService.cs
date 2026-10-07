@@ -61,6 +61,13 @@ namespace FaizMawaid.Services
                 new(ClaimTypes.Name, user.FullName),
                 new(ClaimTypes.Role, roleName)
             };
+            // "SuperAdmin implies Admin": give a SuperAdmin the Admin role claim too, so every
+            // existing [Authorize(Roles = RoleNames.Admin)] endpoint accepts them with no edits.
+            // This is the only place that rule lives.
+            if (roleName == RoleNames.SuperAdmin)
+            {
+                claims.Add(new Claim(ClaimTypes.Role, RoleNames.Admin));
+            }
 
             var credentials = new SigningCredentials(new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key)), SecurityAlgorithms.HmacSha256);
             var token = new JwtSecurityToken(issuer, audience, claims, expires: expiresAt, signingCredentials: credentials);

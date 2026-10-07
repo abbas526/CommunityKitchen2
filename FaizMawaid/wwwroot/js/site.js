@@ -82,6 +82,21 @@
     setAdmin: function (session) { writeSession(ADMIN_KEY, session); },
     getAdmin: function () { return readSession(ADMIN_KEY); },
     clearAdmin: function () { clearSession(ADMIN_KEY); },
+    /** True when the signed-in admin-area user is a SuperAdmin (UI convenience only -- the server enforces it). */
+    isSuperAdmin: function () {
+      var s = readSession(ADMIN_KEY);
+      return !!(s && s.roleName === "SuperAdmin");
+    },
+    /** Call at the top of a SuperAdmin-only page. Regular Admins are sent back to the dashboard. */
+    requireSuperAdmin: function () {
+      var s = CK.session.requireAdmin();
+      if (!s) { return null; }
+      if (s.roleName !== "SuperAdmin") {
+        window.location.replace(CK.rootPath() + "admin/dashboard.html");
+        return null;
+      }
+      return s;
+    },
 
     /** Call at the top of a family-only page. Redirects and returns null if not signed in. */
     requireFamily: function () {
@@ -254,6 +269,13 @@
     },
     changePassword: function (currentPassword, newPassword) {
       return CK.api.post("/api/auth/change-password", { currentPassword: currentPassword, newPassword: newPassword });
+    },
+    /** SuperAdmin-only: change an Admin <-> SuperAdmin account's role. */
+    setUserRole: function (userId, roleId) {
+      return CK.api.put("/api/users/" + userId + "/role", { roleId: roleId });
+    },
+    superAdminSeats: function () {
+      return CK.api.get("/api/users/superadmin-seats");
     },
     adminResetPassword: function (userId, newPassword) {
       return CK.api.post("/api/auth/admin-reset-password", { userId: userId, newPassword: newPassword });
@@ -520,6 +542,7 @@
         }
       } else if (role === "admin") {
         var as = CK.session.getAdmin();
+        var isSuper = !!(as && as.roleName === "SuperAdmin");
         links += link(root + "admin/dashboard.html", "dashboard", "Dashboard");
         links +=
           '<li class="nav-item dropdown">' +
@@ -528,6 +551,7 @@
               '<li><a class="dropdown-item" href="' + root + 'admin/registrations.html"><i class="bi bi-person-check me-2"></i>Pending Registrations</a></li>' +
               '<li><a class="dropdown-item" href="' + root + 'admin/families.html"><i class="bi bi-people me-2"></i>All Families</a></li>' +
               '<li><a class="dropdown-item" href="' + root + 'admin/users.html"><i class="bi bi-person-badge me-2"></i>Users &amp; Passwords</a></li>' +
+              (isSuper ? '<li><a class="dropdown-item" href="' + root + 'admin/admin-accounts.html"><i class="bi bi-shield-lock me-2"></i>Manage Admins</a></li>' : '') +
               '<li><a class="dropdown-item" href="' + root + 'admin/feedback.html"><i class="bi bi-chat-left-text me-2"></i>Family Feedback <span id="ckFeedbackBadge" class="badge rounded-pill text-bg-danger ms-1 d-none"></span></a></li>' +
               '<li><a class="dropdown-item" href="' + root + 'admin/address-change-requests.html"><i class="bi bi-house-gear me-2"></i>Address Change Requests <span id="ckAddressChangeBadge" class="badge rounded-pill text-bg-danger ms-1 d-none"></span></a></li>' +
               '<li><a class="dropdown-item" href="' + root + 'admin/thaali-size-change-requests.html"><i class="bi bi-box-seam me-2"></i>Thaali Size Change Requests <span id="ckSizeChangeBadge" class="badge rounded-pill text-bg-danger ms-1 d-none"></span></a></li>' +
@@ -543,7 +567,7 @@
               '<li><a class="dropdown-item" href="' + root + 'admin/areas.html"><i class="bi bi-signpost-split me-2"></i>Areas</a></li>' +
               '<li><a class="dropdown-item" href="' + root + 'admin/delivery-persons.html"><i class="bi bi-bicycle me-2"></i>Delivery Persons</a></li>' +
               '<li><a class="dropdown-item" href="' + root + 'admin/non-serving-days.html"><i class="bi bi-calendar-x me-2"></i>Non-Serving Days</a></li>' +
-              '<li><a class="dropdown-item" href="' + root + 'admin/settings.html"><i class="bi bi-gear me-2"></i>App Settings</a></li>' +
+              (isSuper ? '<li><a class="dropdown-item" href="' + root + 'admin/settings.html"><i class="bi bi-gear me-2"></i>App Settings</a></li>' : '') +
             '</ul>' +
           '</li>' +
           '<li class="nav-item dropdown">' +
@@ -552,14 +576,14 @@
               '<li><a class="dropdown-item" href="' + root + 'admin/reports.html"><i class="bi bi-bar-chart me-2"></i>Daily Thaali Count</a></li>' +
               '<li><a class="dropdown-item" href="' + root + 'admin/monthly-thaali-distributed.html"><i class="bi bi-calendar3-range me-2"></i>Monthly Thaali Distributed (Area-wise)</a></li>' +
               '<li><a class="dropdown-item" href="' + root + 'admin/monthly-thaali-cancelled.html"><i class="bi bi-calendar-x me-2"></i>Monthly Thaali Cancelled (Area-wise)</a></li>' +
-              '<li><a class="dropdown-item" href="' + root + 'admin/audit-log.html"><i class="bi bi-clock-history me-2"></i>Audit Log</a></li>' +
+              (isSuper ? '<li><a class="dropdown-item" href="' + root + 'admin/audit-log.html"><i class="bi bi-clock-history me-2"></i>Audit Log</a></li>' : '') +
             '</ul>' +
           '</li>';
         if (as) {
           userChip =
             '<div class="dropdown">' +
               '<button class="btn btn-outline-primary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown">' +
-                '<i class="bi bi-shield-check"></i> ' + CK.esc(as.fullName || as.email) +
+                '<i class="bi bi-shield-check"></i> ' + CK.esc(as.fullName || as.email) + (isSuper ? ' <span class="badge text-bg-warning">SuperAdmin</span>' : '') +
               '</button>' +
               '<ul class="dropdown-menu dropdown-menu-end">' +
                 '<li><a class="dropdown-item" href="#" id="ckChangePasswordLink"><i class="bi bi-key me-2"></i>Change Password</a></li>' +
