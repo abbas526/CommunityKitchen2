@@ -36,6 +36,22 @@ namespace FaizMawaid.Tests.ControllerTests
             public Mock<IRefreshTokenRepository> RefreshTokenRepository { get; } = new();
             public Mock<IPasswordHasherService> PasswordHasher { get; } = new();
             public Mock<ITokenService> TokenService { get; } = new();
+            public Mock<IAuditLogRepository> AuditLogRepository { get; } = new();
+        }
+
+        /// <summary>Simulates the signed-in caller (the controller reads identity from JWT claims, never the request body).</summary>
+        private static void SignInAs(AuthController controller, ulong userId, bool superAdmin)
+        {
+            var claims = new List<Claim>
+            {
+                new(ClaimTypes.NameIdentifier, userId.ToString()),
+                new(ClaimTypes.Role, RoleNames.Admin)
+            };
+            if (superAdmin) { claims.Add(new Claim(ClaimTypes.Role, RoleNames.SuperAdmin)); }
+            controller.ControllerContext = new ControllerContext
+            {
+                HttpContext = new DefaultHttpContext { User = new ClaimsPrincipal(new ClaimsIdentity(claims, "test")) }
+            };
         }
 
         private static (AuthController controller, Mocks mocks) CreateController()
@@ -44,7 +60,8 @@ namespace FaizMawaid.Tests.ControllerTests
             mocks.RoleRepository.Setup(r => r.GetAllAsync()).ReturnsAsync(new List<Role>
             {
                 new() { Id = RoleIds.Admin, Name = RoleNames.Admin },
-                new() { Id = RoleIds.FamilyHead, Name = RoleNames.FamilyHead }
+                new() { Id = RoleIds.FamilyHead, Name = RoleNames.FamilyHead },
+                new() { Id = RoleIds.SuperAdmin, Name = RoleNames.SuperAdmin }
             });
             mocks.TokenService.Setup(t => t.CreateAccessToken(It.IsAny<User>(), It.IsAny<string>())).Returns(SampleAccessToken());
             mocks.TokenService.Setup(t => t.CreateRefreshToken()).Returns(SampleRefreshToken());
@@ -56,7 +73,8 @@ namespace FaizMawaid.Tests.ControllerTests
                 mocks.FamilyRepository.Object,
                 mocks.RefreshTokenRepository.Object,
                 mocks.PasswordHasher.Object,
-                mocks.TokenService.Object);
+                mocks.TokenService.Object,
+                mocks.AuditLogRepository.Object);
             return (controller, mocks);
         }
 
@@ -179,13 +197,13 @@ namespace FaizMawaid.Tests.ControllerTests
         // ---------------------------------------------------- BootstrapAdmin
 
         [Fact]
-        public async Task BootstrapAdmin_CreatesFirstAdmin_WhenNoneExists()
+        public async Task BootstrapAdmin_CreatesFirstSuperAdmin_WhenNoneExists()
         {
             var (controller, mocks) = CreateController();
             mocks.UserRepository.Setup(r => r.GetAllAsync(RoleIds.Admin)).ReturnsAsync(new List<User>());
             mocks.UserRepository.Setup(r => r.GetByEmailAsync("newadmin@example.com")).ReturnsAsync((User?)null);
             mocks.PasswordHasher.Setup(h => h.Hash("AdminPass123")).Returns("hashed-admin-password");
-            var createdUser = SampleUser(id: 99, roleId: RoleIds.Admin, mustChangePassword: false);
+            var createdUser = SampleUser(id: 99, roleId: RoleIds.SuperAdmin, mustChangePassword: false);
             mocks.UserRepository.Setup(r => r.CreateAsync(It.IsAny<CreateUserRequest>())).ReturnsAsync(99UL);
             mocks.UserRepository.Setup(r => r.GetByIdAsync(99UL)).ReturnsAsync(createdUser);
 
@@ -198,9 +216,9 @@ namespace FaizMawaid.Tests.ControllerTests
 
             var ok = Assert.IsType<OkObjectResult>(result.Result);
             var response = Assert.IsType<LoginResponse>(ok.Value);
-            Assert.Equal(RoleNames.Admin, response.RoleName);
+            Assert.Equal(RoleNames.SuperAdmin, response.RoleName);
             mocks.UserRepository.Verify(r => r.CreateAsync(It.Is<CreateUserRequest>(req =>
-                req.RoleId == RoleIds.Admin && req.PasswordHash == "hashed-admin-password" && !req.MustChangePassword)), Times.Once);
+                req.RoleId == RoleIds.SuperAdmin && req.PasswordHash == "hashed-admin-password" && !req.MustChangePassword)), Times.Once);
         }
 
         [Fact]
@@ -213,6 +231,23 @@ namespace FaizMawaid.Tests.ControllerTests
             {
                 FullName = "Second Admin",
                 Email = "second@example.com",
+                Password = "AdminPass123"
+            });
+
+            Assert.IsType<ConflictObjectResult>(result.Result);
+            mocks.UserRepository.Verify(r => r.CreateAsync(It.IsAny<CreateUserRequest>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task BootstrapAdmin_ReturnsConflict_WhenASuperAdminAlreadyExists()
+        {
+            var (controller, mocks) = CreateController();
+            mocks.UserRepository.Setup(r => r.GetAllAsync(RoleIds.SuperAdmin)).ReturnsAsync(new List<User> { SampleUser(roleId: RoleIds.SuperAdmin) });
+
+            var result = await controller.BootstrapAdmin(new BootstrapAdminRequest
+            {
+                FullName = "Another",
+                Email = "another@example.com",
                 Password = "AdminPass123"
             });
 
@@ -300,6 +335,7 @@ namespace FaizMawaid.Tests.ControllerTests
         public async Task AdminResetPassword_ReturnsNoContent_WhenUserExists()
         {
             var (controller, mocks) = CreateController();
+            SignInAs(controller, 1, superAdmin: false);
             var user = SampleUser(id: 8);
             mocks.UserRepository.Setup(r => r.GetByIdAsync(user.Id)).ReturnsAsync(user);
             mocks.PasswordHasher.Setup(h => h.Hash("TempPass123")).Returns("hashed-temp-password");
@@ -314,6 +350,7 @@ namespace FaizMawaid.Tests.ControllerTests
         public async Task AdminResetPassword_ReturnsNotFound_WhenUserDoesNotExist()
         {
             var (controller, mocks) = CreateController();
+            SignInAs(controller, 1, superAdmin: false);
             mocks.UserRepository.Setup(r => r.GetByIdAsync(It.IsAny<ulong>())).ReturnsAsync((User?)null);
 
             var result = await controller.AdminResetPassword(new AdminResetPasswordRequest { UserId = 999, NewPassword = "TempPass123" });
@@ -325,12 +362,73 @@ namespace FaizMawaid.Tests.ControllerTests
         public async Task AdminResetPassword_ReturnsBadRequest_WhenPasswordTooShort()
         {
             var (controller, mocks) = CreateController();
+            SignInAs(controller, 1, superAdmin: false);
             var user = SampleUser(id: 8);
             mocks.UserRepository.Setup(r => r.GetByIdAsync(user.Id)).ReturnsAsync(user);
 
             var result = await controller.AdminResetPassword(new AdminResetPasswordRequest { UserId = user.Id, NewPassword = "short" });
 
             Assert.IsType<BadRequestObjectResult>(result);
+        }
+
+        [Fact]
+        public async Task AdminResetPassword_WritesAnAuditEntryNamingTheCaller()
+        {
+            var (controller, mocks) = CreateController();
+            SignInAs(controller, 5, superAdmin: false);
+            var user = SampleUser(id: 8);
+            mocks.UserRepository.Setup(r => r.GetByIdAsync(user.Id)).ReturnsAsync(user);
+            mocks.PasswordHasher.Setup(h => h.Hash("TempPass123")).Returns("hashed-temp-password");
+
+            await controller.AdminResetPassword(new AdminResetPasswordRequest { UserId = user.Id, NewPassword = "TempPass123" });
+
+            mocks.AuditLogRepository.Verify(a => a.AddAsync(It.Is<AuditLog>(l =>
+                l.UserId == 5UL && l.Action == "AdminPasswordReset" && l.EntityId == 8UL)), Times.Once);
+        }
+
+        [Theory]
+        [InlineData(RoleIds.Admin)]
+        [InlineData(RoleIds.SuperAdmin)]
+        public async Task AdminResetPassword_RegularAdmin_CannotResetAnAdminOrSuperAdmin(byte targetRoleId)
+        {
+            var (controller, mocks) = CreateController();
+            SignInAs(controller, 1, superAdmin: false);
+            var target = SampleUser(id: 8, roleId: targetRoleId);
+            mocks.UserRepository.Setup(r => r.GetByIdAsync(target.Id)).ReturnsAsync(target);
+
+            var result = await controller.AdminResetPassword(new AdminResetPasswordRequest { UserId = target.Id, NewPassword = "TempPass123" });
+
+            var forbidden = Assert.IsType<ObjectResult>(result);
+            Assert.Equal(StatusCodes.Status403Forbidden, forbidden.StatusCode);
+            mocks.UserRepository.Verify(r => r.SetPasswordAsync(It.IsAny<ulong>(), It.IsAny<string>(), It.IsAny<bool>()), Times.Never);
+        }
+
+        [Theory]
+        [InlineData(RoleIds.FamilyHead)]
+        [InlineData(RoleIds.Admin)]
+        [InlineData(RoleIds.SuperAdmin)]
+        public async Task AdminResetPassword_SuperAdmin_CanResetAnyone(byte targetRoleId)
+        {
+            var (controller, mocks) = CreateController();
+            SignInAs(controller, 1, superAdmin: true);
+            var target = SampleUser(id: 8, roleId: targetRoleId);
+            mocks.UserRepository.Setup(r => r.GetByIdAsync(target.Id)).ReturnsAsync(target);
+            mocks.PasswordHasher.Setup(h => h.Hash("TempPass123")).Returns("hashed-temp-password");
+
+            var result = await controller.AdminResetPassword(new AdminResetPasswordRequest { UserId = target.Id, NewPassword = "TempPass123" });
+
+            Assert.IsType<NoContentResult>(result);
+            mocks.UserRepository.Verify(r => r.SetPasswordAsync(target.Id, "hashed-temp-password", true), Times.Once);
+        }
+
+        [Fact]
+        public async Task AdminResetPassword_ReturnsUnauthorized_WhenCallerIdentityIsMissing()
+        {
+            var (controller, _) = CreateController();
+
+            var result = await controller.AdminResetPassword(new AdminResetPasswordRequest { UserId = 8, NewPassword = "TempPass123" });
+
+            Assert.IsType<UnauthorizedResult>(result);
         }
     }
 }

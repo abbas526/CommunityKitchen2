@@ -7,7 +7,8 @@ namespace FaizMawaid.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    [Authorize(Roles = RoleNames.Admin)]
+    // SuperAdmin-only (2026-10-07): a regular Admin can no longer read the Audit Log.
+    [Authorize(Roles = RoleNames.SuperAdmin)]
     public class AuditLogsController : ControllerBase
     {
         private readonly IAuditLogRepository _auditLogRepository;

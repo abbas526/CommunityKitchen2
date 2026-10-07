@@ -5,5 +5,10 @@ namespace FaizMawaid.Models
     {
         public const byte Admin = 1;
         public const byte FamilyHead = 2;
+        /// <summary>Added by migration 026_add_superadmin_role.sql.</summary>
+        public const byte SuperAdmin = 3;
+
+        /// <summary>The most ACTIVE SuperAdmin accounts allowed at once. Enforced transactionally in UserRepository.</summary>
+        public const int MaxActiveSuperAdmins = 2;
     }
 }

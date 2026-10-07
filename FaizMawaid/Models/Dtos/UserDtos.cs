@@ -21,4 +21,17 @@ namespace FaizMawaid.Models.Dtos
         public string? Phone { get; set; }
         public string? SabilNumber { get; set; }
     }
+
+    /// <summary>SuperAdmin-only: the new role for an Admin/SuperAdmin account (RoleIds.Admin or RoleIds.SuperAdmin).</summary>
+    public class ChangeUserRoleRequest
+    {
+        public byte RoleId { get; set; }
+    }
+
+    /// <summary>How many of the allowed SuperAdmin seats are used (active SuperAdmins) out of the maximum.</summary>
+    public class SuperAdminSeatsResponse
+    {
+        public int Used { get; set; }
+        public int Max { get; set; }
+    }
 }

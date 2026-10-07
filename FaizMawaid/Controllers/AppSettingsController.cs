@@ -9,7 +9,8 @@ namespace FaizMawaid.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    [Authorize(Roles = RoleNames.Admin)]
+    // SuperAdmin-only (2026-10-07): a regular Admin can no longer read or change App Settings.
+    [Authorize(Roles = RoleNames.SuperAdmin)]
     public class AppSettingsController : ControllerBase
     {
         private readonly IAppSettingsRepository _appSettingsRepository;

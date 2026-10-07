@@ -45,5 +45,15 @@ namespace FaizMawaid.Repositories
             var rows = await connection.ExecuteAsync(sql, new { TokenHash = tokenHash, ReplacedByTokenHash = replacedByTokenHash });
             return rows > 0;
         }
+
+        public async Task<int> RevokeAllForUserAsync(ulong userId)
+        {
+            using IDbConnection connection = _connectionFactory.CreateConnection();
+            const string sql = @"
+                UPDATE RefreshTokens
+                SET RevokedAt = UTC_TIMESTAMP()
+                WHERE UserId = @UserId AND RevokedAt IS NULL;";
+            return await connection.ExecuteAsync(sql, new { UserId = userId });
+        }
     }
 }
